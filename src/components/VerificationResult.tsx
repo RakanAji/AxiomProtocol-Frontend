@@ -9,9 +9,9 @@ import {
   Link,
   FileCheck,
 } from "lucide-react";
-import { truncateAddress, formatTimestamp } from "@/lib/utils";
+import { formatTimestamp } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import type { VerificationResult } from "@/hooks/useAxiomContract";
+import type { VerificationResult } from "@/lib/contracts/types";
 
 interface VerificationResultProps {
   result: VerificationResult | undefined;
@@ -67,7 +67,7 @@ export function VerificationResultDisplay({
 
   const isAuthentic =
     result.isValid &&
-    result.issuer !== "0x0000000000000000000000000000000000000000";
+    result.record.issuer !== "0x0000000000000000000000000000000000000000";
 
   return (
     <div
@@ -123,7 +123,7 @@ export function VerificationResultDisplay({
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white/50">Signed by</p>
                 <p className="font-mono text-sm text-white truncate">
-                  {result.issuer}
+                  {result.record.issuer}
                 </p>
               </div>
             </div>
@@ -136,13 +136,13 @@ export function VerificationResultDisplay({
               <div className="flex-1">
                 <p className="text-xs text-white/50">Registered on</p>
                 <p className="text-sm text-white">
-                  {formatTimestamp(result.timestamp)}
+                  {formatTimestamp(result.record.timestamp)}
                 </p>
               </div>
             </div>
 
             {/* Metadata URI */}
-            {result.uri && (
+            {result.record.metadataURI && (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-white/5">
                 <div className="w-10 h-10 rounded-full bg-axiom-pink/20 flex items-center justify-center">
                   <Link className="w-5 h-5 text-axiom-pink" />
@@ -150,7 +150,7 @@ export function VerificationResultDisplay({
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-white/50">Metadata</p>
                   <p className="font-mono text-sm text-white truncate">
-                    {result.uri}
+                    {result.record.metadataURI}
                   </p>
                 </div>
               </div>

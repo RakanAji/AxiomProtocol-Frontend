@@ -1,218 +1,157 @@
 "use client";
-
 import { useState, useCallback } from "react";
-import { useAccount, useReadContract } from "wagmi";
-import { Search, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { ShieldCheck, ShieldAlert, Loader2, FileSearch } from "lucide-react";
+import { useReadContract } from "wagmi";
+import {
+  AXIOM_ROUTER_ADDRESS,
+  AXIOM_ROUTER_ABI,
+} from "@/lib/contracts/axiom-router";
 import { FileDropzone } from "@/components/FileDropzone";
 import { HashingProgress } from "@/components/HashingProgress";
-import { VerificationResultDisplay } from "@/components/VerificationResult";
-import { calculateFileHash, hashToBytes32 } from "@/lib/hash-utils";
-import {
-  AXIOM_ROUTER_ABI,
-  AXIOM_ROUTER_ADDRESS,
-} from "@/lib/contracts/axiom-router";
+import { calculateFileHash } from "@/lib/hash-utils";
+import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 
-type VerifyStep = "idle" | "hashing" | "verifying" | "result";
-
 export default function VerifyPage() {
-  const { address } = useAccount();
+  const [file, setFile] = useState<File | null>(null);
+  const [hash, setHash] = useState<`0x${string}` | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [isHashing, setIsHashing] = useState(false);
 
-  // State
-  const [step, setStep] = useState<VerifyStep>("idle");
-  const [hashProgress, setHashProgress] = useState(0);
-  const [contentHash, setContentHash] = useState<`0x${string}` | null>(null);
-  const [manualHash, setManualHash] = useState("");
-  const [issuerAddress, setIssuerAddress] = useState<`0x${string}`>(
-    "0x0000000000000000000000000000000000000000",
-  );
-
-  // Verification query
-  const {
-    data: verificationData,
-    isLoading: isVerifying,
-    error: verificationError,
-    refetch,
-  } = useReadContract({
+  // 1. Read from Blockchain
+  const { data: record, isLoading: isVerifying } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
     abi: AXIOM_ROUTER_ABI,
     functionName: "verify",
-    args: contentHash ? [contentHash, issuerAddress] : undefined,
-    query: {
-      enabled: !!contentHash && step === "verifying",
-    },
+    // Use a dummy address for _claimedIssuer as we are just checking existence first
+    args: hash
+      ? [hash, "0x0000000000000000000000000000000000000000"]
+      : undefined,
+    query: { enabled: !!hash },
   });
 
-  // Parse verification result
-  // verify() returns [isValid: boolean, record: AxiomRecord]
-  // where AxiomRecord = { issuer, timestamp, status, algorithm, contentHash, metadataURI }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawRecord = verificationData?.[1] as any;
-  const verificationResult = verificationData
-    ? {
-        isValid: verificationData[0],
-        issuer: rawRecord?.issuer as `0x${string}`,
-        timestamp: rawRecord?.timestamp
-          ? BigInt(rawRecord.timestamp)
-          : BigInt(0),
-        uri: rawRecord?.metadataURI as string,
-      }
-    : undefined;
-
-  // Handle file drop
-  const handleFileSelect = useCallback(
-    async (file: File) => {
-      setStep("hashing");
-      setHashProgress(0);
-      setContentHash(null);
-
-      try {
-        const result = await calculateFileHash(file, (progress) => {
-          setHashProgress(progress);
-        });
-
-        const hash = result.hash as `0x${string}`;
-        setContentHash(hash);
-        setStep("verifying");
-
-        // Small delay then refetch
-        setTimeout(() => {
-          refetch();
-        }, 100);
-      } catch (error) {
-        console.error("Hashing error:", error);
-        toast.error("Failed to calculate hash");
-        setStep("idle");
-      }
-    },
-    [refetch],
-  );
-
-  // Handle manual hash verification
-  const handleManualVerify = () => {
-    if (!manualHash) {
-      toast.error("Please enter a content hash");
-      return;
-    }
+  // 2. Handle File Hashing
+  const handleFileSelect = useCallback(async (selectedFile: File) => {
+    setFile(selectedFile);
+    setIsHashing(true);
+    setProgress(0);
+    setHash(null);
 
     try {
-      const bytes32Hash = hashToBytes32(manualHash);
-      setContentHash(bytes32Hash);
-      setStep("verifying");
-
-      setTimeout(() => {
-        refetch();
-      }, 100);
-    } catch (error) {
-      toast.error("Invalid hash format");
+      const result = await calculateFileHash(selectedFile, (p) =>
+        setProgress(p),
+      );
+      setHash(result.hash as `0x${string}`);
+      toast.success("Digital fingerprint calculated!");
+    } catch (err) {
+      toast.error("Failed to hash file");
+      console.error(err);
+    } finally {
+      setIsHashing(false);
     }
-  };
+  }, []);
 
-  // Update step when verification completes
-  if (step === "verifying" && !isVerifying && verificationResult) {
-    setStep("result");
-  }
-
-  // Reset
-  const handleReset = () => {
-    setStep("idle");
-    setContentHash(null);
-    setHashProgress(0);
-    setManualHash("");
-  };
+  const isValid = record?.[0]; // verify() returns [bool isValid, struct Record]
+  const recordData = record?.[1];
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] py-8 px-4">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-[calc(100vh-5rem)] py-12 px-4">
+      <div className="max-w-3xl mx-auto space-y-8">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-3">Verify Content</h1>
+        <div className="text-center space-y-3">
+          <h1 className="text-4xl font-bold text-white">Verify Content</h1>
           <p className="text-white/60">
-            Drop a file or enter a hash to check its authenticity on the
-            blockchain
+            Drop a file to check its authenticity on the blockchain
           </p>
         </div>
 
-        {/* Main Content */}
-        <div className="space-y-8">
-          {/* Dropzone - Always visible when idle */}
-          {step === "idle" && (
-            <>
-              <FileDropzone
-                onFileSelect={handleFileSelect}
-                size="large"
-                className="mb-8"
-              />
-
-              {/* Manual Hash Input */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/10" />
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="px-4 bg-black text-white/40 text-sm">
-                    or enter hash manually
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Input
-                  placeholder="0x..."
-                  value={manualHash}
-                  onChange={(e) => setManualHash(e.target.value)}
-                  className="font-mono text-sm"
-                />
-                <Button
-                  variant="outline"
-                  onClick={handleManualVerify}
-                  className="gap-2 shrink-0"
-                >
-                  <Search className="w-4 h-4" />
-                  Verify
-                </Button>
-              </div>
-            </>
-          )}
-
-          {/* Hashing Progress */}
-          {step === "hashing" && <HashingProgress progress={hashProgress} />}
-
-          {/* Verifying State */}
-          {step === "verifying" && isVerifying && (
-            <div className="p-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md">
-              <div className="flex flex-col items-center gap-4">
-                <Loader2 className="w-12 h-12 text-axiom-cyan animate-spin" />
-                <p className="text-lg text-white">Querying blockchain...</p>
-                {contentHash && (
-                  <p className="font-mono text-xs text-white/50 break-all max-w-md text-center">
-                    {contentHash}
-                  </p>
-                )}
-              </div>
+        {/* Input Zone */}
+        <Card className="border-white/10 bg-black/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl">
+          {!file ? (
+            <FileDropzone onFileSelect={handleFileSelect} size="large" />
+          ) : isHashing ? (
+            <HashingProgress progress={progress} fileName={file.name} />
+          ) : (
+            <div className="text-center space-y-4 animate-in fade-in">
+              <FileSearch className="w-16 h-16 text-blue-500 mx-auto" />
+              <p className="text-xl text-white font-mono">{file.name}</p>
+              <p className="text-xs text-gray-500 font-mono break-all px-10">
+                {hash}
+              </p>
+              <button
+                onClick={() => setFile(null)}
+                className="text-sm text-blue-400 hover:underline"
+              >
+                Check another file
+              </button>
             </div>
           )}
+        </Card>
 
-          {/* Verification Result */}
-          {(step === "result" || (step === "verifying" && !isVerifying)) && (
-            <>
-              <VerificationResultDisplay
-                result={verificationResult}
-                isLoading={isVerifying}
-                error={verificationError}
-                contentHash={contentHash || undefined}
-              />
-
-              <div className="flex justify-center">
-                <Button variant="outline" onClick={handleReset}>
-                  Verify Another
-                </Button>
+        {/* Results */}
+        {hash && !isHashing && (
+          <div className="animate-in slide-in-from-bottom-10 duration-700">
+            {isVerifying ? (
+              <div className="flex justify-center p-10">
+                <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
               </div>
-            </>
-          )}
-        </div>
+            ) : isValid ? (
+              // VALID CARD
+              <Card className="border-emerald-500/50 bg-emerald-950/30 backdrop-blur-xl p-8 rounded-3xl border-2 shadow-[0_0_50px_-12px_rgba(16,185,129,0.5)]">
+                <div className="flex items-center gap-6">
+                  <div className="p-4 bg-emerald-500/20 rounded-full">
+                    <ShieldCheck className="w-12 h-12 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                      Authentic Record Found
+                    </h2>
+                    <p className="text-emerald-200">
+                      This file is registered on Axiom Protocol.
+                    </p>
+                    <div className="mt-4 grid grid-cols-2 gap-4 text-sm font-mono text-gray-300">
+                      <div>
+                        <span className="block text-gray-500 text-xs">
+                          ISSUER
+                        </span>
+                        {recordData && "issuer" in recordData
+                          ? String(recordData.issuer)
+                          : "Unknown"}
+                      </div>
+                      <div>
+                        <span className="block text-gray-500 text-xs">
+                          TIMESTAMP
+                        </span>
+                        {recordData && "timestamp" in recordData
+                          ? new Date(
+                              Number(recordData.timestamp) * 1000,
+                            ).toLocaleString()
+                          : "N/A"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              // INVALID CARD
+              <Card className="border-red-500/50 bg-red-950/30 backdrop-blur-xl p-8 rounded-3xl border-2 shadow-[0_0_50px_-12px_rgba(239,68,68,0.5)]">
+                <div className="flex items-center gap-6">
+                  <div className="p-4 bg-red-500/20 rounded-full">
+                    <ShieldAlert className="w-12 h-12 text-red-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                      No Record Found
+                    </h2>
+                    <p className="text-red-200">
+                      This file has not been registered or has been modified.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -17,8 +17,9 @@ import { Label } from "@/components/ui/label";
 import { FileDropzone, FilePreview } from "@/components/FileDropzone";
 import { HashingProgress } from "@/components/HashingProgress";
 import { WalletButton } from "@/components/WalletButton";
-import { useRegisterContent, useNetworkStatus } from "@/hooks/useAxiomContract";
-import { calculateFileHash, hashToBytes32 } from "@/lib/hash-utils";
+import { useAxiomRegister } from "@/hooks/use-axiom";
+import { useNetworkStatus } from "@/hooks/useAxiomContract";
+import { calculateFileHash } from "@/lib/hash-utils";
 import { toast } from "sonner";
 
 type RegistrationStep = "upload" | "hashing" | "metadata" | "confirm";
@@ -26,8 +27,14 @@ type RegistrationStep = "upload" | "hashing" | "metadata" | "confirm";
 export default function RegisterPage() {
   const { isConnected } = useAccount();
   const { isWrongNetwork } = useNetworkStatus();
-  const { register, isWritePending, isConfirming, isConfirmed, reset } =
-    useRegisterContent();
+  const {
+    register,
+    status,
+    isPending: isWritePending,
+    isConfirming,
+    isSuccess,
+    reset,
+  } = useAxiomRegister();
 
   // State
   const [step, setStep] = useState<RegistrationStep>("upload");
@@ -86,8 +93,8 @@ export default function RegisterPage() {
     });
 
     try {
-      const bytes32Hash = hashToBytes32(contentHash);
-      await register(bytes32Hash, metadataURI);
+      // useAxiomRegister expects `0x${string}` hash directly
+      register(contentHash, metadataURI);
       setStep("confirm");
     } catch (error) {
       console.error("Registration error:", error);
@@ -121,7 +128,7 @@ export default function RegisterPage() {
         {/* Main Content - Split View */}
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Left Panel - Dropzone */}
-          <Card className="lg:row-span-2">
+          <Card className="lg:row-span-2 border-white/10 bg-black/40 backdrop-blur-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-axiom-cyan" />
@@ -147,14 +154,14 @@ export default function RegisterPage() {
                 <FilePreview
                   file={selectedFile}
                   hash={contentHash || undefined}
-                  onRemove={isConfirmed ? undefined : handleReset}
+                  onRemove={isSuccess ? undefined : handleReset}
                 />
               )}
             </CardContent>
           </Card>
 
           {/* Right Panel - Metadata Form */}
-          <Card>
+          <Card className="border-white/10 bg-black/40 backdrop-blur-md">
             <CardHeader>
               <CardTitle>Content Metadata</CardTitle>
               <CardDescription>
@@ -172,8 +179,9 @@ export default function RegisterPage() {
                     setMetadata({ ...metadata, title: e.target.value })
                   }
                   disabled={
-                    step === "upload" || step === "hashing" || isConfirmed
+                    step === "upload" || step === "hashing" || isSuccess
                   }
+                  className="bg-white/5 border-white/10 focus:border-axiom-cyan/50"
                 />
               </div>
 
@@ -188,8 +196,9 @@ export default function RegisterPage() {
                     setMetadata({ ...metadata, description: e.target.value })
                   }
                   disabled={
-                    step === "upload" || step === "hashing" || isConfirmed
+                    step === "upload" || step === "hashing" || isSuccess
                   }
+                  className="bg-white/5 border-white/10 focus:border-axiom-cyan/50"
                 />
               </div>
 
@@ -205,7 +214,7 @@ export default function RegisterPage() {
           </Card>
 
           {/* Action Panel */}
-          <Card>
+          <Card className="border-white/10 bg-black/40 backdrop-blur-md">
             <CardContent className="pt-6">
               {!isConnected ? (
                 <div className="text-center py-4">
@@ -214,7 +223,7 @@ export default function RegisterPage() {
                   </p>
                   <WalletButton />
                 </div>
-              ) : isConfirmed ? (
+              ) : isSuccess ? (
                 <div className="text-center py-4">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-axiom-green/20 flex items-center justify-center animate-shield-lock">
                     <Shield className="w-8 h-8 text-axiom-green" />
@@ -233,7 +242,7 @@ export default function RegisterPage() {
               ) : (
                 <Button
                   size="xl"
-                  className="w-full gap-2"
+                  className="w-full gap-2 bg-gradient-to-r from-axiom-cyan to-axiom-purple hover:opacity-90 transition-opacity"
                   onClick={handleRegister}
                   disabled={
                     !contentHash ||

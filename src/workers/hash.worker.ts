@@ -1,15 +1,18 @@
 /**
- * Web Worker for SHA-256 File Hashing
- *
- * High-performance file hashing using Web Crypto API with chunked processing.
- * Handles files up to 1GB+ without memory issues.
+ * Web Worker for SHA-256 File Hashing using hash-wasm
+ * * Optimized for low memory usage via streaming/incremental hashing.
  */
 
 /// <reference lib="webworker" />
 
+// Import createSHA256 from hash-wasm
+// Note: Next.js handling of workers might require specific import depending on config,
+// but usually standard import works if treating worker as module.
+import { createSHA256 } from "hash-wasm";
+
 declare const self: DedicatedWorkerGlobalScope;
 
-const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks for optimal large file handling
+const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
 
 export interface HashWorkerMessage {
   file: File;
@@ -35,116 +38,52 @@ export type HashWorkerResponse =
   | HashWorkerCompleteResponse
   | HashWorkerErrorResponse;
 
-/**
- * Main message handler for the worker
- */
 self.onmessage = async (event: MessageEvent<HashWorkerMessage>) => {
   const { file } = event.data;
 
   if (!file) {
-    self.postMessage({
-      status: "error",
-      error: "No file provided",
-    } as HashWorkerErrorResponse);
+    self.postMessage({ status: "error", error: "No file provided" });
     return;
   }
 
   try {
-    const hash = await calculateSHA256Chunked(file);
-    self.postMessage({
-      status: "complete",
-      hash,
-    } as HashWorkerCompleteResponse);
+    const hash = await calculateSHA256Streaming(file);
+    self.postMessage({ status: "complete", hash: `0x${hash}` });
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    self.postMessage({
-      status: "error",
-      error: errorMessage,
-    } as HashWorkerErrorResponse);
+    self.postMessage({ status: "error", error: errorMessage });
   }
 };
 
-/**
- * Calculate SHA-256 hash of a file using chunked reading.
- *
- * Note: Web Crypto API doesn't support incremental hashing directly,
- * so we read all chunks into memory progressively. For truly massive files,
- * consider using a streaming-capable library like `hash-wasm`.
- */
-async function calculateSHA256Chunked(file: File): Promise<`0x${string}`> {
+async function calculateSHA256Streaming(file: File): Promise<string> {
   const fileSize = file.size;
+  // Inisialisasi hasher dari hash-wasm
+  const hasher = await createSHA256();
 
-  // For small files, process in one go
-  if (fileSize <= CHUNK_SIZE) {
-    const buffer = await file.arrayBuffer();
-    self.postMessage({
-      status: "progress",
-      progress: 50,
-    } as HashWorkerProgressResponse);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
-    self.postMessage({
-      status: "progress",
-      progress: 100,
-    } as HashWorkerProgressResponse);
-    return bufferToHex(hashBuffer);
-  }
+  hasher.init();
 
-  // For large files, read in chunks and combine
-  const chunks: Uint8Array[] = [];
   let offset = 0;
-  let totalBytesRead = 0;
 
   while (offset < fileSize) {
     const end = Math.min(offset + CHUNK_SIZE, fileSize);
-    const chunk = file.slice(offset, end);
-    const arrayBuffer = await chunk.arrayBuffer();
-    chunks.push(new Uint8Array(arrayBuffer));
+    const chunkBlob = file.slice(offset, end);
+    const chunkBuffer = await chunkBlob.arrayBuffer();
 
-    totalBytesRead += arrayBuffer.byteLength;
+    // Convert ArrayBuffer to Uint8Array required by hash-wasm
+    const view = new Uint8Array(chunkBuffer);
+
+    // Update hash state incremental (Memory usage stays low!)
+    hasher.update(view);
+
     offset = end;
 
-    // Report progress (reading phase is 80% of work)
-    const progress = Math.round((totalBytesRead / fileSize) * 80);
-    self.postMessage({
-      status: "progress",
-      progress,
-    } as HashWorkerProgressResponse);
+    // Report progress
+    const progress = Math.round((offset / fileSize) * 100);
+    self.postMessage({ status: "progress", progress });
   }
 
-  // Combine all chunks
-  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-  const combined = new Uint8Array(totalLength);
-  let position = 0;
-
-  for (const chunk of chunks) {
-    combined.set(chunk, position);
-    position += chunk.length;
-  }
-
-  self.postMessage({
-    status: "progress",
-    progress: 90,
-  } as HashWorkerProgressResponse);
-
-  // Calculate hash
-  const hashBuffer = await crypto.subtle.digest("SHA-256", combined);
-
-  self.postMessage({
-    status: "progress",
-    progress: 100,
-  } as HashWorkerProgressResponse);
-
-  return bufferToHex(hashBuffer);
-}
-
-/**
- * Convert ArrayBuffer to hex string with 0x prefix
- */
-function bufferToHex(buffer: ArrayBuffer): `0x${string}` {
-  const hashArray = Array.from(new Uint8Array(buffer));
-  const hashHex = hashArray
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return `0x${hashHex}`;
+  // Finalize and get hex string
+  const hashHex = hasher.digest();
+  return hashHex;
 }

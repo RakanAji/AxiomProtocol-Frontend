@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Shield, FileSignature, CheckCircle } from "lucide-react";
+import {
+  Shield,
+  FileSignature,
+  CheckCircle,
+  Fingerprint,
+  LayoutDashboard,
+} from "lucide-react";
 import { WalletButton, NetworkIndicator } from "@/components/WalletButton";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/register", label: "Register", icon: FileSignature },
   { href: "/verify", label: "Verify", icon: CheckCircle },
+  { href: "/identity", label: "Identity", icon: Fingerprint },
 ];
 
 export function Navigation() {
@@ -59,8 +67,8 @@ export function Navigation() {
       </div>
 
       {/* Mobile nav */}
-      <div className="sm:hidden border-t border-white/10 px-4 py-2">
-        <div className="flex items-center gap-2">
+      <div className="sm:hidden border-t border-white/10 px-4 py-2 bg-black/80">
+        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             const Icon = link.icon;
@@ -70,7 +78,7 @@ export function Navigation() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                  "flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all",
                   isActive
                     ? "bg-white/10 text-white"
                     : "text-white/60 hover:text-white",
