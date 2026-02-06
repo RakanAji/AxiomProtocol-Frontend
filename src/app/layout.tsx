@@ -3,6 +3,9 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Navigation } from "@/components/Navigation";
+import { FloatingOrbs } from "@/components/FloatingOrbs";
+import { LeftSidebar } from "@/components/LeftSidebar";
+import { RightSidebar } from "@/components/RightSidebar";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -43,8 +46,13 @@ export default function RootLayout({
         }}
       >
         <Providers>
+          <FloatingOrbs />
           <Navigation />
-          <main className="pt-20">{children}</main>
+          <LeftSidebar />
+          <RightSidebar />
+          <main className="pt-20 xl:pl-60 xl:pr-72 relative z-10 transition-all">
+            {children}
+          </main>
         </Providers>
       </body>
     </html>

@@ -7,6 +7,9 @@ import {
   FileSearch,
   User,
   CheckCircle2,
+  Flag,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { useReadContract, useAccount } from "wagmi";
 import { keccak256, encodePacked } from "viem";
@@ -18,16 +21,40 @@ import { FileDropzone } from "@/components/FileDropzone";
 import { HashingProgress } from "@/components/HashingProgress";
 import { calculateFileHash } from "@/lib/hash-utils";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useIdentity } from "@/hooks/use-axiom";
+import { useDisputeContent } from "@/hooks/useAxiomContract";
+
+// Status Enum: 0 = Active, 1 = Revoked, 2 = Disputed
+const STATUS = {
+  ACTIVE: 0,
+  REVOKED: 1,
+  DISPUTED: 2,
+} as const;
 
 export default function VerifyPage() {
-  const { address: connectedAddress } = useAccount();
+  const { address: connectedAddress, isConnected } = useAccount();
   const [file, setFile] = useState<File | null>(null);
   const [hash, setHash] = useState<`0x${string}` | null>(null);
   const [issuerAddress, setIssuerAddress] = useState<string>("");
   const [progress, setProgress] = useState(0);
   const [isHashing, setIsHashing] = useState(false);
+
+  // Dispute modal state
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+
+  // Dispute hook
+  const {
+    dispute,
+    isPending: isDisputePending,
+    isConfirming: isDisputeConfirming,
+    isConfirmed: isDisputeConfirmed,
+    error: disputeError,
+    reset: resetDispute,
+  } = useDisputeContent();
 
   // Check if issuer is valid
   const isValidIssuer = /^0x[a-fA-F0-9]{40}$/.test(issuerAddress);
@@ -69,6 +96,7 @@ export default function VerifyPage() {
     data: record,
     isLoading: isVerifying,
     error,
+    refetch: refetchRecord,
   } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
     abi: AXIOM_ROUTER_ABI,
@@ -77,9 +105,27 @@ export default function VerifyPage() {
     query: { enabled: !!recordId },
   });
 
-  // Debug: Log raw contract data
-  console.log("Record Data from Contract:", record);
-  console.log("Issuer Identity:", issuerIdentity);
+  // Handle dispute success
+  useEffect(() => {
+    if (isDisputeConfirmed) {
+      toast.success("Dispute Filed!", {
+        description: "Your dispute has been submitted to the protocol.",
+      });
+      setShowDisputeModal(false);
+      setDisputeReason("");
+      resetDispute();
+      refetchRecord();
+    }
+  }, [isDisputeConfirmed, resetDispute, refetchRecord]);
+
+  // Handle dispute error
+  useEffect(() => {
+    if (disputeError) {
+      toast.error("Dispute Failed", {
+        description: disputeError.message.slice(0, 100),
+      });
+    }
+  }, [disputeError]);
 
   // Handle File Hashing
   const handleFileSelect = useCallback(async (selectedFile: File) => {
@@ -104,7 +150,15 @@ export default function VerifyPage() {
     }
   }, []);
 
-  // getRecord returns struct directly, check if timestamp > 0 to determine validity
+  const handleDispute = async () => {
+    if (!recordId || !disputeReason.trim()) {
+      toast.error("Please provide a reason for the dispute");
+      return;
+    }
+    await dispute(recordId, disputeReason);
+  };
+
+  // Parse record data
   const recordData = record as
     | {
         issuer: `0x${string}`;
@@ -116,8 +170,10 @@ export default function VerifyPage() {
       }
     | undefined;
 
-  // Valid if timestamp > 0 (record exists) and no error
-  const isValid = recordData && Number(recordData.timestamp) > 0 && !error;
+  // Record exists if timestamp > 0
+  const recordExists = recordData && Number(recordData.timestamp) > 0;
+  // Get status (0 = Active, 1 = Revoked, 2 = Disputed)
+  const status = recordExists ? recordData.status : -1;
 
   // Check if issuer has identity
   const hasIdentity = issuerIdentity && Number(issuerIdentity.registeredAt) > 0;
@@ -191,35 +247,48 @@ export default function VerifyPage() {
               <div className="flex justify-center p-10">
                 <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
               </div>
-            ) : isValid ? (
-              // VALID CARD
+            ) : recordExists && status === STATUS.ACTIVE ? (
+              // ========== ACTIVE (GREEN) CARD ==========
               <Card className="border-emerald-500/40 bg-emerald-950/40 backdrop-blur-2xl p-8 rounded-3xl border shadow-[0_0_80px_-15px_rgba(16,185,129,0.6)] transition-all duration-500 hover:shadow-[0_0_100px_-10px_rgba(16,185,129,0.7)]">
-                <div className="flex items-center gap-6">
+                <div className="flex items-start gap-6">
                   <div className="p-4 bg-emerald-500/20 rounded-full">
                     <ShieldCheck className="w-12 h-12 text-emerald-400" />
                   </div>
                   <div className="flex-1">
-                    <h2 className="text-3xl font-bold text-white mb-2">
-                      Authentic Record Found
-                    </h2>
-                    <p className="text-emerald-200">
-                      This file is registered on Axiom Protocol.
-                    </p>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h2 className="text-3xl font-bold text-white mb-2">
+                          Authentic Record Found
+                        </h2>
+                        <p className="text-emerald-200">
+                          This file is registered on Axiom Protocol.
+                        </p>
+                      </div>
+                      {/* Report/Dispute Button */}
+                      {isConnected && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowDisputeModal(true)}
+                          className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+                        >
+                          <Flag className="w-3 h-3 mr-1" />
+                          Report
+                        </Button>
+                      )}
+                    </div>
                     <div className="mt-4 space-y-3 text-sm">
-                      {/* Issuer with Identity */}
                       <div>
                         <span className="block text-gray-500 text-xs mb-1">
                           ISSUER
                         </span>
                         {hasIdentity ? (
                           <div className="flex items-center gap-2">
-                            {/* Avatar */}
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
                               <span className="text-sm font-bold text-white">
                                 {issuerIdentity.name.charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            {/* Name + Badge */}
                             <span className="text-white font-semibold">
                               {issuerIdentity.name}
                             </span>
@@ -237,7 +306,6 @@ export default function VerifyPage() {
                             {recordData?.issuer}
                           </span>
                         )}
-                        {/* Always show address below */}
                         {hasIdentity && (
                           <span className="block text-xs text-gray-500 font-mono mt-1">
                             {recordData?.issuer}
@@ -258,8 +326,104 @@ export default function VerifyPage() {
                   </div>
                 </div>
               </Card>
+            ) : recordExists && status === STATUS.REVOKED ? (
+              // ========== REVOKED (GRAY/RED) CARD ==========
+              <Card className="border-slate-500/40 bg-slate-950/40 backdrop-blur-2xl p-8 rounded-3xl border shadow-[0_0_80px_-15px_rgba(100,116,139,0.6)] transition-all duration-500">
+                <div className="flex items-center gap-6">
+                  <div className="p-4 bg-slate-500/20 rounded-full">
+                    <ShieldAlert className="w-12 h-12 text-slate-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                      REVOKED RECORD
+                    </h2>
+                    <p className="text-slate-300">
+                      The issuer has cancelled this record.
+                    </p>
+                    <div className="mt-4 space-y-3 text-sm">
+                      <div>
+                        <span className="block text-gray-500 text-xs mb-1">
+                          ISSUER
+                        </span>
+                        {hasIdentity ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-semibold">
+                              {issuerIdentity!.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-gray-300 break-all">
+                            {recordData?.issuer}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="block text-gray-500 text-xs mb-1">
+                          ORIGINAL TIMESTAMP
+                        </span>
+                        <span className="text-gray-300">
+                          {new Date(
+                            Number(recordData?.timestamp) * 1000,
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ) : recordExists && status === STATUS.DISPUTED ? (
+              // ========== DISPUTED (AMBER) CARD ==========
+              <Card className="border-amber-500/40 bg-amber-950/40 backdrop-blur-2xl p-8 rounded-3xl border shadow-[0_0_80px_-15px_rgba(245,158,11,0.6)] transition-all duration-500">
+                <div className="flex items-center gap-6">
+                  <div className="p-4 bg-amber-500/20 rounded-full">
+                    <AlertTriangle className="w-12 h-12 text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                      COMMUNITY DISPUTE
+                    </h2>
+                    <p className="text-amber-200">
+                      This record has been flagged by the community.
+                    </p>
+                    <div className="mt-4 space-y-3 text-sm">
+                      <div>
+                        <span className="block text-gray-500 text-xs mb-1">
+                          ISSUER
+                        </span>
+                        {hasIdentity ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-semibold">
+                              {issuerIdentity!.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-gray-300 break-all">
+                            {recordData?.issuer}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="block text-gray-500 text-xs mb-1">
+                          TIMESTAMP
+                        </span>
+                        <span className="text-gray-300">
+                          {new Date(
+                            Number(recordData?.timestamp) * 1000,
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <p className="text-amber-200 text-xs">
+                        ⚠️ Exercise caution. This content is under review by
+                        protocol operators.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
             ) : (
-              // INVALID CARD
+              // ========== NOT FOUND (RED) CARD ==========
               <Card className="border-red-500/40 bg-red-950/40 backdrop-blur-2xl p-8 rounded-3xl border shadow-[0_0_80px_-15px_rgba(239,68,68,0.6)] animate-pulse transition-all duration-500">
                 <div className="flex items-center gap-6">
                   <div className="p-4 bg-red-500/20 rounded-full">
@@ -290,6 +454,72 @@ export default function VerifyPage() {
               content.
             </p>
           </Card>
+        )}
+
+        {/* Dispute Modal */}
+        {showDisputeModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <Card className="border-amber-500/40 bg-black/90 backdrop-blur-2xl p-6 rounded-2xl w-full max-w-md">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Flag className="w-5 h-5 text-amber-400" />
+                  Report Content
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowDisputeModal(false);
+                    setDisputeReason("");
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-gray-400 text-sm mb-4">
+                Flag this content for review by protocol operators. Please
+                provide a reason for your dispute.
+              </p>
+              <Input
+                value={disputeReason}
+                onChange={(e) => setDisputeReason(e.target.value)}
+                placeholder="Reason for dispute (e.g., copyright infringement, misleading content)"
+                className="bg-white/5 border-white/10 mb-4"
+                disabled={isDisputePending || isDisputeConfirming}
+              />
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowDisputeModal(false);
+                    setDisputeReason("");
+                  }}
+                  disabled={isDisputePending || isDisputeConfirming}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-black"
+                  onClick={handleDispute}
+                  disabled={
+                    !disputeReason.trim() ||
+                    isDisputePending ||
+                    isDisputeConfirming
+                  }
+                >
+                  {isDisputePending || isDisputeConfirming ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      {isDisputePending ? "Confirm..." : "Submitting..."}
+                    </>
+                  ) : (
+                    "Submit Dispute"
+                  )}
+                </Button>
+              </div>
+            </Card>
+          </div>
         )}
       </div>
     </div>

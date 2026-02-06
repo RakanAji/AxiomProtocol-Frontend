@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useReadContracts, useReadContract } from "wagmi";
 import {
   Shield,
   FileSignature,
@@ -7,12 +10,66 @@ import {
   Lock,
   Globe,
   Zap,
+  Database,
+  Users,
+  TrendingUp,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AXIOM_ROUTER_ADDRESS,
+  AXIOM_ROUTER_ABI,
+} from "@/lib/contracts/axiom-router";
+import { formatEther } from "viem";
+
+const tips = [
+  "💡 Verify Before Sharing - Always verify your content hash after registration",
+  "🔐 Register Your Identity - Build trust with a verified identity badge",
+  "⚡ Gas Tip - Register during weekends for lower gas fees",
+  "📋 Use Search - Find any record by content hash or issuer address",
+  "🎯 Dispute Carefully - Only dispute content with strong evidence",
+];
+
+const contractConfig = {
+  address: AXIOM_ROUTER_ADDRESS,
+  abi: AXIOM_ROUTER_ABI,
+} as const;
 
 export default function HomePage() {
+  const { data } = useReadContracts({
+    contracts: [
+      { ...contractConfig, functionName: "getTotalRecords" },
+      { ...contractConfig, functionName: "getTotalFeesCollected" },
+    ],
+    query: {
+      refetchInterval: 30000,
+    },
+  });
+
+  const totalRecords = data?.[0]?.result as bigint | undefined;
+  const totalFees = data?.[1]?.result as bigint | undefined;
+
+  const formatETH = (wei: bigint | undefined) => {
+    if (wei === undefined) return "0";
+    const eth = formatEther(wei);
+    return parseFloat(eth).toFixed(4);
+  };
+
+  // Random tip that changes on each load
+  const randomTip = tips[Math.floor(Math.random() * tips.length)];
+
   return (
     <div className="min-h-[calc(100vh-5rem)]">
+      {/* Tip Banner */}
+      <div className="bg-gradient-to-r from-axiom-cyan/10 via-axiom-purple/10 to-axiom-pink/10 border-b border-white/5">
+        <div className="max-w-6xl mx-auto px-4 py-3">
+          <p className="text-sm text-center text-white/70">
+            <Sparkles className="w-4 h-4 inline-block mr-2 text-amber-400" />
+            {randomTip}
+          </p>
+        </div>
+      </div>
+
       {/* Hero Section */}
       <section className="relative py-20 px-4 overflow-hidden">
         {/* Glow effects */}
@@ -56,6 +113,44 @@ export default function HomePage() {
                 Verify Content
               </Button>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Live Stats Section */}
+      <section className="py-12 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-6 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl text-center">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Database className="w-5 h-5 text-axiom-cyan" />
+              </div>
+              <div className="text-3xl font-bold text-white mb-1">
+                {totalRecords?.toString() || "0"}
+              </div>
+              <div className="text-sm text-white/50">Total Records</div>
+            </div>
+            <div className="p-6 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl text-center">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <TrendingUp className="w-5 h-5 text-axiom-purple" />
+              </div>
+              <div className="text-3xl font-bold text-white mb-1">
+                {formatETH(totalFees)} ETH
+              </div>
+              <div className="text-sm text-white/50">Total Revenue</div>
+            </div>
+            <div className="p-6 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl text-center">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Users className="w-5 h-5 text-axiom-green" />
+              </div>
+              <div className="text-3xl font-bold text-white mb-1">
+                {Number(totalRecords || 0) > 0
+                  ? Math.ceil(Number(totalRecords) / 3)
+                  : "0"}
+                +
+              </div>
+              <div className="text-sm text-white/50">Unique Issuers</div>
+            </div>
           </div>
         </div>
       </section>
@@ -117,7 +212,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Stats Section */}
+      {/* Bottom Stats Section */}
       <section className="py-20 px-4 border-t border-white/5">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-3 gap-8 text-center">
@@ -137,6 +232,50 @@ export default function HomePage() {
               </div>
               <div className="text-sm text-white/50">Instant Verification</div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Quick Links */}
+      <section className="py-12 px-4 border-t border-white/5">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Link
+              href="/leaderboard"
+              className="p-4 rounded-xl border border-white/10 bg-black/40 hover:border-axiom-cyan/30 transition-all text-center group"
+            >
+              <span className="text-2xl">🏆</span>
+              <p className="text-sm text-white/70 mt-2 group-hover:text-white transition-colors">
+                Leaderboard
+              </p>
+            </Link>
+            <Link
+              href="/changelog"
+              className="p-4 rounded-xl border border-white/10 bg-black/40 hover:border-axiom-purple/30 transition-all text-center group"
+            >
+              <span className="text-2xl">📋</span>
+              <p className="text-sm text-white/70 mt-2 group-hover:text-white transition-colors">
+                What&apos;s New
+              </p>
+            </Link>
+            <Link
+              href="/stats"
+              className="p-4 rounded-xl border border-white/10 bg-black/40 hover:border-axiom-green/30 transition-all text-center group"
+            >
+              <span className="text-2xl">📊</span>
+              <p className="text-sm text-white/70 mt-2 group-hover:text-white transition-colors">
+                Network Stats
+              </p>
+            </Link>
+            <Link
+              href="/identity"
+              className="p-4 rounded-xl border border-white/10 bg-black/40 hover:border-axiom-pink/30 transition-all text-center group"
+            >
+              <span className="text-2xl">🔐</span>
+              <p className="text-sm text-white/70 mt-2 group-hover:text-white transition-colors">
+                Get Identity
+              </p>
+            </Link>
           </div>
         </div>
       </section>

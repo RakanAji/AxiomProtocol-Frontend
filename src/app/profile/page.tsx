@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAccount, useReadContract, useReadContracts } from "wagmi";
 import {
@@ -8,9 +8,9 @@ import {
   FileText,
   Loader2,
   Clock,
-  ExternalLink,
   CheckCircle2,
   Search,
+  Ban,
 } from "lucide-react";
 import {
   Card,
@@ -27,6 +27,8 @@ import {
   AXIOM_ROUTER_ABI,
 } from "@/lib/contracts/axiom-router";
 import { useMyIdentity, useIdentity } from "@/hooks/use-axiom";
+import { useRevokeContent } from "@/hooks/useAxiomContract";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
   const { isConnected, address } = useAccount();
@@ -35,6 +37,16 @@ export default function ProfilePage() {
   const [viewingAddress, setViewingAddress] = useState<`0x${string}` | null>(
     null,
   );
+  const [revokingId, setRevokingId] = useState<`0x${string}` | null>(null);
+
+  // Revoke hook
+  const {
+    revoke,
+    isPending: isRevokePending,
+    isConfirming: isRevokeConfirming,
+    isConfirmed: isRevokeConfirmed,
+    error: revokeError,
+  } = useRevokeContent();
 
   // Determine which address to show records for
   const targetAddress = viewingAddress || address;
@@ -47,7 +59,11 @@ export default function ProfilePage() {
   const displayIdentity = isOwnProfile ? myIdentity : targetIdentity;
 
   // Fetch record IDs for the target address
-  const { data: recordIds, isLoading: isLoadingRecords } = useReadContract({
+  const {
+    data: recordIds,
+    isLoading: isLoadingRecords,
+    refetch: refetchRecords,
+  } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
     abi: AXIOM_ROUTER_ABI,
     functionName: "getRecordsByIssuer",
@@ -64,11 +80,42 @@ export default function ProfilePage() {
       args: [id] as const,
     })) || [];
 
-  const { data: recordsData, isLoading: isLoadingRecordDetails } =
-    useReadContracts({
-      contracts: recordContracts,
-      query: { enabled: recordContracts.length > 0 },
-    });
+  const {
+    data: recordsData,
+    isLoading: isLoadingRecordDetails,
+    refetch: refetchRecordDetails,
+  } = useReadContracts({
+    contracts: recordContracts,
+    query: { enabled: recordContracts.length > 0 },
+  });
+
+  // Handle revoke success
+  useEffect(() => {
+    if (isRevokeConfirmed) {
+      toast.success("Content Revoked!", {
+        description: "The content has been revoked successfully.",
+      });
+      setRevokingId(null);
+      // Refetch records to update UI
+      refetchRecords();
+      refetchRecordDetails();
+    }
+  }, [isRevokeConfirmed, refetchRecords, refetchRecordDetails]);
+
+  // Handle revoke error
+  useEffect(() => {
+    if (revokeError) {
+      toast.error("Revoke Failed", {
+        description: revokeError.message.slice(0, 100),
+      });
+      setRevokingId(null);
+    }
+  }, [revokeError]);
+
+  const handleRevoke = async (recordId: `0x${string}`) => {
+    setRevokingId(recordId);
+    await revoke(recordId, "User requested revocation");
+  };
 
   const handleSearch = () => {
     if (/^0x[a-fA-F0-9]{40}$/.test(searchAddress)) {
@@ -271,10 +318,15 @@ export default function ProfilePage() {
                     // Not JSON, use as-is
                   }
 
+                  const isRevoking = revokingId === record!.id;
+                  const isActive = record!.status === 0;
+
                   return (
                     <Card
                       key={record!.id || index}
-                      className="border-white/10 bg-black/40 backdrop-blur-xl p-4 rounded-xl hover:border-cyan-500/30 transition-all"
+                      className={`border-white/10 bg-black/40 backdrop-blur-xl p-4 rounded-xl transition-all ${
+                        isActive ? "hover:border-cyan-500/30" : "opacity-60"
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
@@ -301,16 +353,36 @@ export default function ProfilePage() {
                             </span>
                           </div>
                         </div>
-                        <div className="flex-shrink-0">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <span
                             className={`px-2 py-1 rounded text-xs font-medium ${
-                              record!.status === 0
+                              isActive
                                 ? "bg-emerald-500/20 text-emerald-300"
                                 : "bg-red-500/20 text-red-300"
                             }`}
                           >
-                            {record!.status === 0 ? "Active" : "Revoked"}
+                            {isActive ? "Active" : "Revoked"}
                           </span>
+
+                          {/* Revoke Button - Only for own profile and active records */}
+                          {isOwnProfile && isActive && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleRevoke(record!.id!)}
+                              disabled={isRevokePending || isRevokeConfirming}
+                              className="h-7 px-2 text-xs"
+                            >
+                              {isRevoking ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <Ban className="w-3 h-3 mr-1" />
+                                  Revoke
+                                </>
+                              )}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </Card>

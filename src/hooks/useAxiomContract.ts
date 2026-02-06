@@ -213,6 +213,41 @@ export function useRevokeContent() {
   };
 }
 
+// Hook to dispute content
+export function useDisputeContent() {
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    error,
+    reset,
+  } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({
+      hash,
+    });
+
+  const dispute = async (recordId: `0x${string}`, reason: string) => {
+    writeContract({
+      address: AXIOM_ROUTER_ADDRESS,
+      abi: AXIOM_ROUTER_ABI,
+      functionName: "disputeContent",
+      args: [recordId, reason],
+    });
+  };
+
+  return {
+    dispute,
+    txHash: hash,
+    isPending,
+    isConfirming,
+    isConfirmed,
+    error,
+    reset,
+  };
+}
+
 // Hook to register identity
 export function useRegisterIdentity() {
   const { writeContract, data: hash, isPending, error } = useWriteContract();
