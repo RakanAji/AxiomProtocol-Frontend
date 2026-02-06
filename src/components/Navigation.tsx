@@ -8,6 +8,8 @@ import {
   CheckCircle,
   Fingerprint,
   LayoutDashboard,
+  UserCircle,
+  Search,
 } from "lucide-react";
 import { WalletButton, NetworkIndicator } from "@/components/WalletButton";
 import { cn } from "@/lib/utils";
@@ -17,6 +19,8 @@ const navLinks = [
   { href: "/register", label: "Register", icon: FileSignature },
   { href: "/verify", label: "Verify", icon: CheckCircle },
   { href: "/identity", label: "Identity", icon: Fingerprint },
+  { href: "/profile", label: "Profile", icon: UserCircle },
+  { href: "/search", label: "Search", icon: Search },
 ];
 
 export function Navigation() {

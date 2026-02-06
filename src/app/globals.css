@@ -86,6 +86,7 @@
 
 /* Background gradient animation */
 .bg-animated-gradient {
+  background-color: #000000;
   background: linear-gradient(-45deg, #000000, #0a0a0a, #050510, #0a0505);
   background-size: 400% 400%;
   animation: gradientShift 15s ease infinite;

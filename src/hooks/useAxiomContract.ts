@@ -241,6 +241,41 @@ export function useRegisterIdentity() {
   };
 }
 
+// Hook to update identity
+export function useUpdateIdentity() {
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    error,
+    reset,
+  } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({
+      hash,
+    });
+
+  const updateIdentity = async (name: string, proofURI: string) => {
+    writeContract({
+      address: AXIOM_ROUTER_ADDRESS,
+      abi: AXIOM_ROUTER_ABI,
+      functionName: "updateIdentity",
+      args: [name, proofURI],
+    });
+  };
+
+  return {
+    updateIdentity,
+    txHash: hash,
+    isPending,
+    isConfirming,
+    isConfirmed,
+    error,
+    reset,
+  };
+}
+
 // Helper function to parse contract errors
 function parseContractError(error: Error): string {
   const message = error.message.toLowerCase();

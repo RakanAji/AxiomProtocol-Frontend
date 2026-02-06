@@ -5,8 +5,7 @@
  * The user will replace this with the full ABI from their deployment.
  */
 
-export const AXIOM_ROUTER_ADDRESS = (process.env
-  .NEXT_PUBLIC_AXIOM_ROUTER_ADDRESS ||
+export const AXIOM_ROUTER_ADDRESS = (process.env.NEXT_PUBLIC_AXIOM_ROUTER_ADDRESS ||
   "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512") as `0x${string}`;
 
 export const AXIOM_ROUTER_ABI = [

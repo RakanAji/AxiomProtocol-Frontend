@@ -33,9 +33,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" style={{ backgroundColor: "#000000" }}>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} font-sans bg-animated-gradient bg-grid noise-overlay min-h-screen`}
+        className={`${inter.variable} ${jetbrainsMono.variable} font-sans min-h-screen`}
+        style={{
+          backgroundColor: "#000000",
+          backgroundImage:
+            "radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 40%)",
+        }}
       >
         <Providers>
           <Navigation />
