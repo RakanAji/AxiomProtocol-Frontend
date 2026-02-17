@@ -1,1413 +1,235 @@
-/**
- * AxiomRouter Contract ABI
- *
- * This file contains the ABI for the AxiomRouter contract.
- * The user will replace this with the full ABI from their deployment.
- */
+export const AXIOM_ROUTER_ADDRESS = (process.env.NEXT_PUBLIC_AXIOM_ROUTER_ADDRESS || "0x903317a90C3fE3b42692CAF4b695Ff17ACb22cab") as `0x${string}`;
 
-export const AXIOM_ROUTER_ADDRESS = (process.env.NEXT_PUBLIC_AXIOM_ROUTER_ADDRESS ||
-  "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512") as `0x${string}`;
+export const AXIOM_ROUTER_ABI = 
 
-export const AXIOM_ROUTER_ABI = [
-  {
-    type: "constructor",
-    inputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "receive",
-    stateMutability: "payable",
-  },
-  {
-    type: "function",
-    name: "DEFAULT_ADMIN_ROLE",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "ENTERPRISE_ROLE",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "OPERATOR_ROLE",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "PAUSER_ROLE",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "UPGRADER_ROLE",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "UPGRADE_INTERFACE_VERSION",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "VERSION",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "banAddress",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_reason",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "batchRegister",
-    inputs: [
-      {
-        name: "_contentHashes",
-        type: "bytes32[]",
-        internalType: "bytes32[]",
-      },
-      {
-        name: "_metadataURIs",
-        type: "string[]",
-        internalType: "string[]",
-      },
-    ],
-    outputs: [
-      {
-        name: "recordIds",
-        type: "bytes32[]",
-        internalType: "bytes32[]",
-      },
-    ],
-    stateMutability: "payable",
-  },
-  {
-    type: "function",
-    name: "disputeContent",
-    inputs: [
-      {
-        name: "_recordId",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "_reason",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "getBaseFee",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getFee",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getRecord",
-    inputs: [
-      {
-        name: "_recordId",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "tuple",
-        internalType: "struct AxiomTypes.AxiomRecord",
-        components: [
-          {
-            name: "issuer",
-            type: "address",
-            internalType: "address",
-          },
-          {
-            name: "timestamp",
-            type: "uint40",
-            internalType: "uint40",
-          },
-          {
-            name: "status",
-            type: "uint8",
-            internalType: "enum AxiomTypes.ContentStatus",
-          },
-          {
-            name: "algorithm",
-            type: "uint8",
-            internalType: "enum AxiomTypes.HashAlgorithm",
-          },
-          {
-            name: "contentHash",
-            type: "bytes32",
-            internalType: "bytes32",
-          },
-          {
-            name: "metadataURI",
-            type: "string",
-            internalType: "string",
-          },
-        ],
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getRecordsByIssuer",
-    inputs: [
-      {
-        name: "_issuer",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32[]",
-        internalType: "bytes32[]",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getRoleAdmin",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getTotalFeesCollected",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getTotalRecords",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "grantEnterpriseStatus",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "grantRole",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "hasRole",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "initialize",
-    inputs: [
-      {
-        name: "_admin",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_treasuryWallet",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "isBanned",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "isEnterpriseUser",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "isIdentityVerified",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "pause",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "paused",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "proxiableUUID",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "register",
-    inputs: [
-      {
-        name: "_contentHash",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "_metadataURI",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    outputs: [
-      {
-        name: "recordId",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "payable",
-  },
-  {
-    type: "function",
-    name: "registerIdentity",
-    inputs: [
-      {
-        name: "_name",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "_proofURI",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "renounceRole",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "callerConfirmation",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "resolveByName",
-    inputs: [
-      {
-        name: "_name",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "resolveIdentity",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "tuple",
-        internalType: "struct AxiomTypes.IdentityInfo",
-        components: [
-          {
-            name: "name",
-            type: "string",
-            internalType: "string",
-          },
-          {
-            name: "proofURI",
-            type: "string",
-            internalType: "string",
-          },
-          {
-            name: "isVerified",
-            type: "bool",
-            internalType: "bool",
-          },
-          {
-            name: "registeredAt",
-            type: "uint40",
-            internalType: "uint40",
-          },
-        ],
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "revoke",
-    inputs: [
-      {
-        name: "_recordId",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "_reason",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "revokeEnterpriseStatus",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "revokeRole",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "revokeVerification",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setBaseFee",
-    inputs: [
-      {
-        name: "_fee",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setEnterpriseRate",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_rate",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setMaxBatchSize",
-    inputs: [
-      {
-        name: "_size",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setRateLimit",
-    inputs: [
-      {
-        name: "_window",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "_maxActions",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setTreasuryWallet",
-    inputs: [
-      {
-        name: "_wallet",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "supportsInterface",
-    inputs: [
-      {
-        name: "interfaceId",
-        type: "bytes4",
-        internalType: "bytes4",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "unbanAddress",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "unpause",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "updateIdentity",
-    inputs: [
-      {
-        name: "_name",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "_proofURI",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "upgradeToAndCall",
-    inputs: [
-      {
-        name: "newImplementation",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "data",
-        type: "bytes",
-        internalType: "bytes",
-      },
-    ],
-    outputs: [],
-    stateMutability: "payable",
-  },
-  {
-    type: "function",
-    name: "verify",
-    inputs: [
-      {
-        name: "_contentHash",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "_claimedIssuer",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "isValid",
-        type: "bool",
-        internalType: "bool",
-      },
-      {
-        name: "record",
-        type: "tuple",
-        internalType: "struct AxiomTypes.AxiomRecord",
-        components: [
-          {
-            name: "issuer",
-            type: "address",
-            internalType: "address",
-          },
-          {
-            name: "timestamp",
-            type: "uint40",
-            internalType: "uint40",
-          },
-          {
-            name: "status",
-            type: "uint8",
-            internalType: "enum AxiomTypes.ContentStatus",
-          },
-          {
-            name: "algorithm",
-            type: "uint8",
-            internalType: "enum AxiomTypes.HashAlgorithm",
-          },
-          {
-            name: "contentHash",
-            type: "bytes32",
-            internalType: "bytes32",
-          },
-          {
-            name: "metadataURI",
-            type: "string",
-            internalType: "string",
-          },
-        ],
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "verifyIdentity",
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "withdraw",
-    inputs: [
-      {
-        name: "_to",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_amount",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "event",
-    name: "ContentDisputed",
-    inputs: [
-      {
-        name: "recordId",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "operator",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "reason",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "ContentRegistered",
-    inputs: [
-      {
-        name: "recordId",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "issuer",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "contentHash",
-        type: "bytes32",
-        indexed: false,
-        internalType: "bytes32",
-      },
-      {
-        name: "timestamp",
-        type: "uint40",
-        indexed: false,
-        internalType: "uint40",
-      },
-      {
-        name: "metadataURI",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "ContentRevoked",
-    inputs: [
-      {
-        name: "recordId",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "issuer",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "reason",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "FeeCollected",
-    inputs: [
-      {
-        name: "payer",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "recordId",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "IdentityRegistered",
-    inputs: [
-      {
-        name: "user",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "name",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
-      {
-        name: "proofURI",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "IdentityVerified",
-    inputs: [
-      {
-        name: "user",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "verifier",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "Initialized",
-    inputs: [
-      {
-        name: "version",
-        type: "uint64",
-        indexed: false,
-        internalType: "uint64",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "Paused",
-    inputs: [
-      {
-        name: "account",
-        type: "address",
-        indexed: false,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "RoleAdminChanged",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "previousAdminRole",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "newAdminRole",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "RoleGranted",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "sender",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "RoleRevoked",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "sender",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "Unpaused",
-    inputs: [
-      {
-        name: "account",
-        type: "address",
-        indexed: false,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "Upgraded",
-    inputs: [
-      {
-        name: "implementation",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "error",
-    name: "AccessControlBadConfirmation",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "AccessControlUnauthorizedAccount",
-    inputs: [
-      {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "neededRole",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "AddressBanned",
-    inputs: [
-      {
-        name: "user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "AddressEmptyCode",
-    inputs: [
-      {
-        name: "target",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ArrayLengthMismatch",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "BatchSizeExceeded",
-    inputs: [
-      {
-        name: "size",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "maxSize",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ContentAlreadyExists",
-    inputs: [
-      {
-        name: "recordId",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ContentAlreadyRevoked",
-    inputs: [
-      {
-        name: "recordId",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ContentNotFound",
-    inputs: [
-      {
-        name: "recordId",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ERC1967InvalidImplementation",
-    inputs: [
-      {
-        name: "implementation",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ERC1967NonPayable",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "EnforcedPause",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ExpectedPause",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "FailedCall",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "IdentityAlreadyExists",
-    inputs: [
-      {
-        name: "user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "IdentityNotFound",
-    inputs: [
-      {
-        name: "user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "InsufficientFee",
-    inputs: [
-      {
-        name: "sent",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "required",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "InvalidInitialization",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "NotInitializing",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "NotIssuer",
-    inputs: [
-      {
-        name: "caller",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "issuer",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "RateLimitExceeded",
-    inputs: [
-      {
-        name: "user",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ReentrancyGuardReentrantCall",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "UUPSUnauthorizedCallContext",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "UUPSUnsupportedProxiableUUID",
-    inputs: [
-      {
-        name: "slot",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-  },
-] as const;
+╭----------+-----------------------------------------------------------------------------------------------------------------------------+------------╮
+| Type     | Signature                                                                                                                   | Selector   |
++=====================================================================================================================================================+
+| function | addDelegate(address,bytes32,uint256) nonpayable                                                                             | 0x57917102 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | appeal(bytes32,string) payable returns (bytes32)                                                                            | 0x8b29b7d5 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | approve(address,uint256) nonpayable                                                                                         | 0x095ea7b3 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | balanceOf(address) view returns (uint256)                                                                                   | 0x70a08231 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | banAddress(address,string) nonpayable                                                                                       | 0x166d32cb |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | batchRegister(bytes32[],string[]) payable returns (bytes32[])                                                               | 0xfa8168ef |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | claimRoyalties(bytes32) nonpayable returns (uint256)                                                                        | 0x4fd8a790 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | claimRoyaltiesToken(bytes32,address) nonpayable returns (uint256)                                                           | 0xc67cc253 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | claimStake(bytes32) nonpayable returns (uint256)                                                                            | 0x4007c5ad |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | confirmErasure(bytes32,bytes32) nonpayable                                                                                  | 0x36388819 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | contentExists(bytes32) view returns (bool)                                                                                  | 0x4c279f56 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | createLicense(bytes32,AxiomTypesV2.LicenseType,uint256,address,uint16,uint40,bool,bool,string) nonpayable returns (uint256) | 0xe7f7ece6 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | createSublicense(uint256,uint256,uint40) nonpayable returns (uint256)                                                       | 0x15d6219a |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | deactivateLicense(uint256) nonpayable                                                                                       | 0x662d3363 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | disputeContent(bytes32,string) nonpayable                                                                                   | 0xa6654700 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | escalateToArbitration(bytes32,address) payable                                                                              | 0xa7ef33aa |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getActiveDisputes(uint256,uint256) view returns (bytes32[])                                                                 | 0x9ffc4e34 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getAppealDeadline(bytes32) view returns (uint256)                                                                           | 0x81b33297 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getApproved(uint256) view returns (address)                                                                                 | 0x081812fc |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getApprovedArbitrators() view returns (address[])                                                                           | 0x553276a7 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getArbitratorFee(address,AxiomTypesV2.DisputeReason) view returns (uint256)                                                 | 0xf034975e |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getBaseFee() view returns (uint256)                                                                                         | 0x15e812ad |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getDIDString(address) view returns (string)                                                                                 | 0x045bd016 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getDelegates(address) view returns (AxiomTypesV2.DIDDelegate[])                                                             | 0x169db77d |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getDispute(bytes32) view returns (AxiomTypesV2.Dispute)                                                                     | 0x136ba6aa |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getDisputesByChallenger(address) view returns (bytes32[])                                                                   | 0x2b29f7ad |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getDisputesByRecord(bytes32) view returns (bytes32[])                                                                       | 0xc5137883 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getFee(address) view returns (uint256)                                                                                      | 0xb88c9148 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getGDPRRequest(bytes32) view returns (AxiomTypesV2.GDPRRequest)                                                             | 0x42831a3f |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getIdentity(address) view returns (AxiomTypesV2.DIDIdentity)                                                                | 0x2fea7b81 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getLicense(uint256) view returns (AxiomTypesV2.License)                                                                     | 0xb2dd1212 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getLicensesByOwner(address) view returns (uint256[])                                                                        | 0x1fa2fa4e |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getLicensesByRecord(bytes32) view returns (uint256[])                                                                       | 0xda1682a4 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getMinimumStake(bytes32) view returns (uint256)                                                                             | 0x750379da |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getPrivateRecord(bytes32) view returns (AxiomTypesV2.PrivateRecord)                                                         | 0xfa6e56f2 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getRecord(bytes32) view returns (AxiomTypes.AxiomRecord)                                                                    | 0x213681cd |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getRecordsByCommitment(bytes32) view returns (bytes32[])                                                                    | 0x372265ac |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getRecordsByIssuer(address) view returns (bytes32[])                                                                        | 0x7e7fd76c |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getRoyaltySplit(bytes32) view returns (AxiomTypesV2.RoyaltySplit)                                                           | 0x4883602b |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getStakeConfig() view returns (AxiomTypesV2.StakeConfig)                                                                    | 0xfe1d4ffc |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getTotalFeesCollected() view returns (uint256)                                                                              | 0x46876508 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getTotalRecords() view returns (uint256)                                                                                    | 0x0aeacb5e |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getVerificationLevel(address) view returns (AxiomTypesV2.VerificationLevel)                                                 | 0x20e21535 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | getZKVerifier() view returns (address)                                                                                      | 0x0c2d2fea |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | grantEnterpriseStatus(address) nonpayable                                                                                   | 0x55155263 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | hasActiveDispute(bytes32) view returns (bool)                                                                               | 0x1b951597 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | hasDID(address) view returns (bool)                                                                                         | 0xd0f4b30a |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | hasValidLicense(address,bytes32) view returns (bool,AxiomTypesV2.LicenseType)                                               | 0x753d2074 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | initiateDispute(bytes32,AxiomTypesV2.DisputeReason,string) payable returns (bytes32)                                        | 0x28fbb5e6 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | initiateDisputeWithToken(bytes32,AxiomTypesV2.DisputeReason,string,address,uint256) nonpayable returns (bytes32)            | 0xf4b275cc |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | isApprovedForAll(address,address) view returns (bool)                                                                       | 0xe985e9c5 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | isArbitratorApproved(address) view returns (bool)                                                                           | 0x785f5f3b |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | isBanned(address) view returns (bool)                                                                                       | 0x97f735d5 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | isDIDActive(address) view returns (bool)                                                                                    | 0x71422e5d |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | isEnterpriseUser(address) view returns (bool)                                                                               | 0x66c0675e |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | isIdentityVerified(address) view returns (bool)                                                                             | 0xf63ac762 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | isLicenseValid(uint256) view returns (bool)                                                                                 | 0x9f7fc6d3 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | isMetadataDeleted(bytes32) view returns (bool)                                                                              | 0x9b38eed7 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | meetsVerificationLevel(address,AxiomTypesV2.VerificationLevel) view returns (bool)                                          | 0xb2fc4a82 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | name() pure returns (string)                                                                                                | 0x06fdde03 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | nonce(address) view returns (uint256)                                                                                       | 0x70ae92d2 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | nullifierUsed(bytes32) view returns (bool)                                                                                  | 0x7ecf686d |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | ownerOf(uint256) view returns (address)                                                                                     | 0x6352211e |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | pendingRoyalties(address,bytes32) view returns (uint256)                                                                    | 0x248c52d2 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | privateRegister(bytes32,bytes32,bytes32,bytes,string) payable returns (bytes32)                                             | 0x18c7ec76 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | purchaseLicense(uint256,uint40) payable returns (uint256)                                                                   | 0x20222639 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | purchaseLicenseFor(uint256,address,uint40) payable returns (uint256)                                                        | 0xc9f6f354 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | purchaseSublicense(uint256) payable returns (uint256)                                                                       | 0x02273f75 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | register(bytes32,string) payable returns (bytes32)                                                                          | 0xcf2d31fb |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | registerDID(string,bytes32,string) nonpayable                                                                               | 0x7586f965 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | registerIdentity(string,string) nonpayable                                                                                  | 0x0be8293f |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | requestErasure(bytes32,bytes) nonpayable returns (bytes32)                                                                  | 0xb5306f42 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | resolveByName(string) view returns (address)                                                                                | 0x58873d46 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | resolveByTimeout(bytes32) nonpayable                                                                                        | 0x2a7559ad |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | resolveDID(string) view returns (AxiomTypesV2.DIDIdentity)                                                                  | 0x9d7f0bbf |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | resolveIdentity(address) view returns (AxiomTypes.IdentityInfo)                                                             | 0x90c4184c |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | respondToDispute(bytes32,string) nonpayable                                                                                 | 0x1cef39a9 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | revoke(bytes32,string) nonpayable                                                                                           | 0x08ccbc94 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | revokeAttribute(bytes32,bytes) nonpayable                                                                                   | 0x2646efe3 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | revokeDID() nonpayable                                                                                                      | 0x9790874c |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | revokeDelegate(address,bytes32) nonpayable                                                                                  | 0x0d766ec7 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | revokeEnterpriseStatus(address) nonpayable                                                                                  | 0xfad424ad |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | revokeVerification(address) nonpayable                                                                                      | 0xe998d2fa |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | royaltyInfo(uint256,uint256) view returns (address,uint256)                                                                 | 0x2a55205a |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | rule(uint256,uint256) nonpayable                                                                                            | 0x311a6c56 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | safeTransferFrom(address,address,uint256) nonpayable                                                                        | 0x42842e0e |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setApprovalForAll(address,bool) nonpayable                                                                                  | 0xa22cb465 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setAttribute(bytes32,bytes,uint256) nonpayable                                                                              | 0xd862913f |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setBaseFee(uint256) nonpayable                                                                                              | 0x46860698 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setEnterpriseRate(address,uint256) nonpayable                                                                               | 0x00ac0292 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setMaxBatchSize(uint256) nonpayable                                                                                         | 0x2b26a6bf |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setRateLimit(uint256,uint256) nonpayable                                                                                    | 0xb53f5227 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setRoyaltySplit(bytes32,address[],uint16[]) nonpayable                                                                      | 0x306480eb |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setServiceEndpoint(string) nonpayable                                                                                       | 0x7f2397bc |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setTerritoryRestrictions(uint256,string) nonpayable                                                                         | 0x82c49d3f |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setTreasuryWallet(address) nonpayable                                                                                       | 0xa8602fea |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setVerificationLevel(address,AxiomTypesV2.VerificationLevel) nonpayable                                                     | 0x10c76f85 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | setZKVerifier(address) nonpayable                                                                                           | 0xc5090346 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | settleDispute(bytes32,uint16,bytes,bytes) nonpayable                                                                        | 0x04fec377 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | submitEvidence(bytes32,string) nonpayable                                                                                   | 0xf48a0b31 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | symbol() pure returns (string)                                                                                              | 0x95d89b41 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | tokenURI(uint256) view returns (string)                                                                                     | 0xc87b56dd |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | transferFrom(address,address,uint256) nonpayable                                                                            | 0x23b872dd |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | unbanAddress(address) nonpayable                                                                                            | 0x8293a114 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | updateDIDDocument(bytes32) nonpayable                                                                                       | 0xbbfaee15 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | updateIdentity(string,string) nonpayable                                                                                    | 0xe16efc6d |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | updateLicense(uint256,uint256,uint40,bool) nonpayable                                                                       | 0xb2d2b3f3 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | validDelegate(address,bytes32,address) view returns (bool)                                                                  | 0x622b2a3c |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | verify(bytes32,address) view returns (bool,AxiomTypes.AxiomRecord)                                                          | 0xb88fbd2d |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | verifyIdentity(address) nonpayable                                                                                          | 0xb5b90fd9 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | verifyOwnership(bytes32,bytes32,bytes) view returns (bool)                                                                  | 0x8ad39fbc |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | verifySignature(address,bytes32,bytes) view returns (bool,address)                                                          | 0x01751998 |
+|----------+-----------------------------------------------------------------------------------------------------------------------------+------------|
+| function | withdraw(address,uint256) nonpayable                                                                                        | 0xf3fef3a3 |
+╰----------+-----------------------------------------------------------------------------------------------------------------------------+------------╯
+
+ as const;

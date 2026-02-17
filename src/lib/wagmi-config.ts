@@ -49,8 +49,11 @@ export const SUPPORTED_CHAIN_IDS = {
 } as const;
 
 // Target chain for the application
-export const TARGET_CHAIN_ID = SUPPORTED_CHAIN_IDS.FOUNDRY;
-export const TARGET_CHAIN = localFoundry;
+// export const TARGET_CHAIN_ID = SUPPORTED_CHAIN_IDS.FOUNDRY;
+// export const TARGET_CHAIN = localFoundry;
+
+export const TARGET_CHAIN_ID = SUPPORTED_CHAIN_IDS.SEPOLIA;
+export const TARGET_CHAIN = sepolia;
 
 declare module "wagmi" {
   interface Register {
