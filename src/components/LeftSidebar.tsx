@@ -6,7 +6,6 @@ import { formatEther } from "viem";
 import {
   Database,
   Coins,
-  Server,
   Activity,
   User,
   FileCheck,
@@ -42,7 +41,6 @@ export function LeftSidebar() {
       { ...contractConfig, functionName: "getTotalRecords" },
       { ...contractConfig, functionName: "getTotalFeesCollected" },
       { ...contractConfig, functionName: "getBaseFee" },
-      { ...contractConfig, functionName: "paused" },
     ],
     query: {
       refetchInterval: 30000,
@@ -84,7 +82,6 @@ export function LeftSidebar() {
   const totalRecords = data?.[0]?.result as bigint | undefined;
   const totalFees = data?.[1]?.result as bigint | undefined;
   const baseFee = data?.[2]?.result as bigint | undefined;
-  const isPaused = data?.[3]?.result as boolean | undefined;
 
   const userRecordCount =
     (userRecords as `0x${string}`[] | undefined)?.length || 0;
@@ -135,11 +132,11 @@ export function LeftSidebar() {
               value={isLoading ? "..." : `${formatETH(baseFee)} ETH`}
             />
             <StatItem
-              icon={Server}
-              iconColor={isPaused ? "text-red-400" : "text-axiom-green"}
+              icon={Activity}
+              iconColor="text-axiom-green"
               label="Status"
-              value={isLoading ? "..." : isPaused ? "Paused" : "Operational"}
-              valueColor={isPaused ? "text-red-400" : "text-axiom-green"}
+              value={isLoading ? "..." : "Operational"}
+              valueColor="text-axiom-green"
             />
           </div>
         </div>

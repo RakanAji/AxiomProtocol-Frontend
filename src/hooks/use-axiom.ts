@@ -305,6 +305,7 @@ export function useIdentity(params: {
     query: {
       enabled: !!address,
       staleTime: 0,
+      retry: 1,
     },
   });
 
@@ -322,6 +323,7 @@ export function useIdentity(params: {
     query: {
       enabled: !!name,
       staleTime: 0,
+      retry: 1,
     },
   });
 

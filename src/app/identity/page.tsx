@@ -11,6 +11,7 @@ import {
   Sparkles,
   Pencil,
   X,
+  RefreshCw,
 } from "lucide-react";
 import {
   Card,
@@ -34,7 +35,8 @@ import { toast } from "sonner";
 export default function IdentityPage() {
   const { isConnected, address } = useAccount();
   const { isWrongNetwork } = useNetworkStatus();
-  const { identity, isLoadingIdentity, refetchIdentity } = useMyIdentity();
+  const { identity, isLoadingIdentity, identityError, refetchIdentity } =
+    useMyIdentity();
 
   // Register hook
   const {
@@ -187,13 +189,40 @@ export default function IdentityPage() {
         )}
 
         {/* Loading State */}
-        {isConnected && isLoadingIdentity && (
+        {isConnected && isLoadingIdentity && !isRegisterConfirmed && (
           <Card className="border-white/10 bg-black/40 backdrop-blur-xl p-8 rounded-3xl">
             <div className="flex justify-center p-10">
               <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
             </div>
           </Card>
         )}
+
+        {/* Registration Success - shown when register confirmed but identity not yet loaded */}
+        {isConnected &&
+          isRegisterConfirmed &&
+          !hasIdentity &&
+          !isLoadingIdentity && (
+            <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 to-black/40 backdrop-blur-2xl p-8 rounded-3xl">
+              <div className="text-center space-y-4">
+                <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto" />
+                <h2 className="text-2xl font-bold text-white">
+                  Identity Registered!
+                </h2>
+                <p className="text-white/60">
+                  Your on-chain identity has been created successfully. It may
+                  take a moment to reflect on-chain.
+                </p>
+                <Button
+                  onClick={() => refetchIdentity()}
+                  variant="outline"
+                  className="mt-4"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </Card>
+          )}
 
         {/* Has Identity - Display Card */}
         {isConnected && !isLoadingIdentity && hasIdentity && !isEditing && (

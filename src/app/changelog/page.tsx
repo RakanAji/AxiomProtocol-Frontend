@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useReadContract } from "wagmi";
+
 import {
   BookOpen,
   Sparkles,
@@ -10,10 +10,6 @@ import {
   Lightbulb,
   ExternalLink,
 } from "lucide-react";
-import {
-  AXIOM_ROUTER_ADDRESS,
-  AXIOM_ROUTER_ABI,
-} from "@/lib/contracts/axiom-router";
 import { cn } from "@/lib/utils";
 
 interface ChangelogEntry {
@@ -104,12 +100,6 @@ export default function ChangelogPage() {
   );
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
-  const { data: version } = useReadContract({
-    address: AXIOM_ROUTER_ADDRESS,
-    abi: AXIOM_ROUTER_ABI,
-    functionName: "VERSION",
-  });
-
   const getVersionColor = (type: ChangelogEntry["type"]) => {
     switch (type) {
       case "major":
@@ -146,14 +136,6 @@ export default function ChangelogPage() {
             Changelog, tips, and everything you need to know about Axiom
             Protocol
           </p>
-          {version && (
-            <p className="mt-4 text-sm text-white/40">
-              Current contract version:{" "}
-              <span className="text-axiom-cyan font-mono">
-                {version as string}
-              </span>
-            </p>
-          )}
         </div>
 
         {/* Tips Carousel */}

@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { useReadContracts } from "wagmi";
 import { formatEther } from "viem";
-import {
-  Activity,
-  Database,
-  Coins,
-  Server,
-  RefreshCw,
-  Shield,
-} from "lucide-react";
+import { Activity, Database, Coins, Server, RefreshCw } from "lucide-react";
 import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
@@ -33,8 +26,6 @@ export default function StatsPage() {
       { ...contractConfig, functionName: "getTotalRecords" },
       { ...contractConfig, functionName: "getTotalFeesCollected" },
       { ...contractConfig, functionName: "getBaseFee" },
-      { ...contractConfig, functionName: "VERSION" },
-      { ...contractConfig, functionName: "paused" },
     ],
   });
 
@@ -42,8 +33,6 @@ export default function StatsPage() {
   const totalRecords = data?.[0]?.result as bigint | undefined;
   const totalFees = data?.[1]?.result as bigint | undefined;
   const baseFee = data?.[2]?.result as bigint | undefined;
-  const version = data?.[3]?.result as string | undefined;
-  const isPaused = data?.[4]?.result as boolean | undefined;
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -153,41 +142,20 @@ export default function StatsPage() {
           {/* System Status */}
           <StatCard
             icon={Server}
-            iconColor={isPaused ? "text-red-400" : "text-axiom-green"}
-            iconBgColor={isPaused ? "bg-red-500/20" : "bg-axiom-green/20"}
-            glowColor={
-              isPaused
-                ? "shadow-[0_0_60px_-15px_rgba(239,68,68,0.5)]"
-                : "shadow-[0_0_60px_-15px_rgba(16,185,129,0.5)]"
-            }
-            borderColor={
-              isPaused
-                ? "hover:border-red-500/40"
-                : "hover:border-axiom-green/40"
-            }
+            iconColor="text-axiom-green"
+            iconBgColor="bg-axiom-green/20"
+            glowColor="shadow-[0_0_60px_-15px_rgba(16,185,129,0.5)]"
+            borderColor="hover:border-axiom-green/40"
             title="System Status"
-            value={
-              isPaused === undefined ? "—" : isPaused ? "Paused" : "Operational"
-            }
-            valueColor={isPaused ? "text-red-400" : "text-axiom-green"}
-            subtitle={
-              isPaused
-                ? "Protocol is temporarily paused"
-                : "All systems running"
-            }
+            value="Operational"
+            valueColor="text-axiom-green"
+            subtitle="All systems running"
             isLoading={isLoading}
           />
         </div>
 
         {/* Contract Info */}
         <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-sm">
-            <Shield className="w-4 h-4 text-axiom-cyan" />
-            <span className="text-sm text-white/70">Contract Version:</span>
-            <span className="text-sm text-white font-mono">
-              {version || "—"}
-            </span>
-          </div>
           <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-sm">
             <Activity className="w-4 h-4 text-axiom-purple" />
             <span className="text-sm text-white/70">Router:</span>

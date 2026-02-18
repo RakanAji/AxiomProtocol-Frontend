@@ -39,21 +39,6 @@ export function useNetworkStatus() {
   };
 }
 
-// Hook to get contract version
-export function useAxiomVersion() {
-  const { data, isLoading, error } = useReadContract({
-    address: AXIOM_ROUTER_ADDRESS,
-    abi: AXIOM_ROUTER_ABI,
-    functionName: "VERSION",
-  });
-
-  return {
-    version: data as string | undefined,
-    isLoading,
-    error,
-  };
-}
-
 // Hook to verify content
 export function useVerifyContent(
   contentHash: `0x${string}` | undefined,
