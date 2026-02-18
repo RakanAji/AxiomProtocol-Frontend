@@ -24,7 +24,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useIdentity } from "@/hooks/use-axiom";
+import { useIdentity } from "@/hooks/useAxiomContract";
 import { useDisputeContent } from "@/hooks/useAxiomContract";
 
 // Status Enum: 0 = Active, 1 = Revoked, 2 = Disputed

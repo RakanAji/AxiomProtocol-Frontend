@@ -24,7 +24,7 @@ import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
 } from "@/lib/contracts/axiom-router";
-import { useIdentity } from "@/hooks/use-axiom";
+import { useIdentity } from "@/hooks/useAxiomContract";
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");

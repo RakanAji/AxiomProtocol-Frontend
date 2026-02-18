@@ -26,7 +26,7 @@ import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
 } from "@/lib/contracts/axiom-router";
-import { useMyIdentity, useIdentity } from "@/hooks/use-axiom";
+import { useMyIdentity, useIdentity } from "@/hooks/useAxiomContract";
 import { useRevokeContent } from "@/hooks/useAxiomContract";
 import { toast } from "sonner";
 

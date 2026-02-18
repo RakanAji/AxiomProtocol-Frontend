@@ -19,8 +19,16 @@ import { toast } from "sonner";
 export interface VerificationResult {
   isValid: boolean;
   issuer: `0x${string}`;
-  timestamp: bigint;
+  timestamp: number;
   uri: string;
+}
+
+// Identity info from resolveIdentity
+export interface IdentityInfo {
+  name: string;
+  proofURI: string;
+  isVerified: boolean;
+  registeredAt: number;
 }
 
 // Hook to check if connected to correct network
@@ -36,6 +44,22 @@ export function useNetworkStatus() {
     isCorrectNetwork,
     isWrongNetwork,
     targetChainId: TARGET_CHAIN_ID,
+  };
+}
+
+// Hook to get protocol base fee
+export function useProtocolFee() {
+  const { data, isLoading, error, refetch } = useReadContract({
+    address: AXIOM_ROUTER_ADDRESS,
+    abi: AXIOM_ROUTER_ABI,
+    functionName: "getBaseFee",
+  });
+
+  return {
+    baseFee: data as bigint | undefined,
+    isLoading,
+    error,
+    refetch,
   };
 }
 
@@ -62,9 +86,7 @@ export function useVerifyContent(
     ? {
         isValid: data[0],
         issuer: rawRecord?.issuer as `0x${string}`,
-        timestamp: rawRecord?.timestamp
-          ? BigInt(rawRecord.timestamp)
-          : BigInt(0),
+        timestamp: rawRecord?.timestamp ? Number(rawRecord.timestamp) : 0,
         uri: rawRecord?.metadataURI as string,
       }
     : undefined;
@@ -90,6 +112,7 @@ export function useVerifyContentByHash(contentHash: `0x${string}` | undefined) {
 // Hook to register content
 export function useRegisterContent() {
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const { baseFee } = useProtocolFee();
 
   const {
     writeContract,
@@ -138,7 +161,6 @@ export function useRegisterContent() {
         action: {
           label: "View",
           onClick: () => {
-            // For local, just copy to clipboard
             navigator.clipboard.writeText(txHash);
           },
         },
@@ -147,12 +169,20 @@ export function useRegisterContent() {
   }, [isConfirmed, txHash]);
 
   const register = async (contentHash: `0x${string}`, metadataURI: string) => {
+    if (!baseFee) {
+      toast.error("Fee Unavailable", {
+        description: "Could not fetch protocol fee. Please try again.",
+      });
+      return;
+    }
+
     try {
       writeContract({
         address: AXIOM_ROUTER_ADDRESS,
         abi: AXIOM_ROUTER_ABI,
         functionName: "register",
         args: [contentHash, metadataURI],
+        value: baseFee,
       });
     } catch (error) {
       console.error("Register error:", error);
@@ -294,6 +324,44 @@ export function useUpdateIdentity() {
     error,
     reset,
   };
+}
+
+// Hook to read identity by address
+export function useIdentity({ address }: { address?: `0x${string}` }) {
+  const { data, isLoading, error, refetch } = useReadContract({
+    address: AXIOM_ROUTER_ADDRESS,
+    abi: AXIOM_ROUTER_ABI,
+    functionName: "resolveIdentity",
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address,
+      retry: 1,
+    },
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = data as any;
+  const identity: IdentityInfo | undefined = data
+    ? {
+        name: raw.name as string,
+        proofURI: raw.proofURI as string,
+        isVerified: raw.isVerified as boolean,
+        registeredAt: Number(raw.registeredAt),
+      }
+    : undefined;
+
+  return {
+    identity,
+    isLoadingIdentity: isLoading,
+    identityError: error,
+    refetchIdentity: refetch,
+  };
+}
+
+// Hook to get the connected user's identity
+export function useMyIdentity() {
+  const { address } = useAccount();
+  return useIdentity({ address });
 }
 
 // Helper function to parse contract errors

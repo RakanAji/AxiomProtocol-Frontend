@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { WalletButton } from "@/components/WalletButton";
-import { useMyIdentity } from "@/hooks/use-axiom";
+import { useMyIdentity } from "@/hooks/useAxiomContract";
 import {
   useRegisterIdentity,
   useUpdateIdentity,

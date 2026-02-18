@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { FileDropzone, FilePreview } from "@/components/FileDropzone";
 import { HashingProgress } from "@/components/HashingProgress";
 import { WalletButton } from "@/components/WalletButton";
-import { useAxiomRegister } from "@/hooks/use-axiom";
+import { useRegisterContent as useAxiomRegister } from "@/hooks/useAxiomContract";
 import { useNetworkStatus } from "@/hooks/useAxiomContract";
 import { calculateFileHash } from "@/lib/hash-utils";
 import { toast } from "sonner";
@@ -29,10 +29,9 @@ export default function RegisterPage() {
   const { isWrongNetwork } = useNetworkStatus();
   const {
     register,
-    status,
-    isPending: isWritePending,
+    isWritePending,
     isConfirming,
-    isSuccess,
+    isConfirmed: isSuccess,
     reset,
   } = useAxiomRegister();
 
