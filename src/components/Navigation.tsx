@@ -13,6 +13,7 @@ import {
   Activity,
   Trophy,
   BookOpen,
+  ShoppingBag,
 } from "lucide-react";
 import { WalletButton, NetworkIndicator } from "@/components/WalletButton";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const primaryLinks = [
 ];
 
 const secondaryLinks = [
+  { href: "/marketplace", label: "Market", icon: ShoppingBag },
   { href: "/identity", label: "Identity", icon: Fingerprint },
   { href: "/profile", label: "Profile", icon: UserCircle },
   { href: "/search", label: "Search", icon: Search },

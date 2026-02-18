@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Search,
   Ban,
+  Tag,
 } from "lucide-react";
 import {
   Card,
@@ -22,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WalletButton } from "@/components/WalletButton";
+import { CreateLicenseModal } from "@/components/CreateLicenseModal";
 import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
@@ -38,6 +40,9 @@ export default function ProfilePage() {
     null,
   );
   const [revokingId, setRevokingId] = useState<`0x${string}` | null>(null);
+  const [licenseRecordId, setLicenseRecordId] = useState<`0x${string}` | null>(
+    null,
+  );
 
   // Revoke hook
   const {
@@ -364,24 +369,35 @@ export default function ProfilePage() {
                             {isActive ? "Active" : "Revoked"}
                           </span>
 
-                          {/* Revoke Button - Only for own profile and active records */}
+                          {/* License & Revoke Buttons - Only for own profile and active records */}
                           {isOwnProfile && isActive && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleRevoke(record!.id!)}
-                              disabled={isRevokePending || isRevokeConfirming}
-                              className="h-7 px-2 text-xs"
-                            >
-                              {isRevoking ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <>
-                                  <Ban className="w-3 h-3 mr-1" />
-                                  Revoke
-                                </>
-                              )}
-                            </Button>
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setLicenseRecordId(record!.id!)}
+                                className="h-7 px-2 text-xs border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
+                              >
+                                <Tag className="w-3 h-3 mr-1" />
+                                Create License
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleRevoke(record!.id!)}
+                                disabled={isRevokePending || isRevokeConfirming}
+                                className="h-7 px-2 text-xs"
+                              >
+                                {isRevoking ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Ban className="w-3 h-3 mr-1" />
+                                    Revoke
+                                  </>
+                                )}
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -393,6 +409,15 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Create License Modal */}
+      {licenseRecordId && (
+        <CreateLicenseModal
+          isOpen={!!licenseRecordId}
+          onClose={() => setLicenseRecordId(null)}
+          recordId={licenseRecordId}
+        />
+      )}
     </div>
   );
 }
