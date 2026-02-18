@@ -327,6 +327,7 @@ export function useUpdateIdentity() {
 }
 
 // Hook to read identity by address
+// Hook to read identity by address
 export function useIdentity({ address }: { address?: `0x${string}` }) {
   const { data, isLoading, error, refetch } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
@@ -339,16 +340,38 @@ export function useIdentity({ address }: { address?: `0x${string}` }) {
     },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = data as any;
-  const identity: IdentityInfo | undefined = data
-    ? {
-        name: raw.name as string,
-        proofURI: raw.proofURI as string,
-        isVerified: raw.isVerified as boolean,
-        registeredAt: Number(raw.registeredAt),
-      }
-    : undefined;
+  // Safe parsing for Tuple returns in Wagmi/Viem
+  const parseIdentity = (rawData: any): IdentityInfo | undefined => {
+    if (!rawData) return undefined;
+
+    // Jika kembaliannya berbentuk Array (contoh: ["Rakan Aji", "ipfs://...", false, 17000000])
+    if (Array.isArray(rawData)) {
+      return {
+        name: rawData[0] || "",
+        proofURI: rawData[1] || "",
+        isVerified: rawData[2] || false,
+        registeredAt: rawData[3] ? Number(rawData[3]) : 0,
+      };
+    }
+
+    // Jika kembaliannya berbentuk Object (contoh: { name: "Rakan Aji", ... })
+    return {
+      name: rawData.name || "",
+      proofURI: rawData.proofURI || "",
+      isVerified: rawData.isVerified || false,
+      registeredAt: rawData.registeredAt ? Number(rawData.registeredAt) : 0,
+    };
+  };
+
+  const identity = parseIdentity(data);
+
+  // Debug: remove after investigation
+  if (address) {
+    console.log("[useIdentity] address:", address);
+    console.log("[useIdentity] raw data:", data);
+    console.log("[useIdentity] parsed identity:", identity);
+    console.log("[useIdentity] error:", error);
+  }
 
   return {
     identity,
