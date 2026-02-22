@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ExternalLink,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Card,
@@ -192,6 +193,15 @@ export default function SearchPage() {
                   <Button variant="outline" className="w-full">
                     <User className="w-4 h-4 mr-2" />
                     View Profile
+                  </Button>
+                </Link>
+                <Link href={`/profile?address=${resolvedAddress}`}>
+                  <Button
+                    variant="outline"
+                    className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    Dispute
                   </Button>
                 </Link>
                 <Button

@@ -11,6 +11,8 @@ import {
   Clock,
   Shield,
   Sparkles,
+  FileText,
+  ImageIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,13 +24,28 @@ import {
 import { usePurchaseLicense } from "@/hooks/useLicense";
 
 // ============================================================================
-// HELPERS — keep contract config building outside component for clarity
+// HELPERS
 // ============================================================================
 
 const routerConfig = {
   address: AXIOM_ROUTER_ADDRESS,
   abi: AXIOM_ROUTER_ABI,
 } as const;
+
+/**
+ * Resolve IPFS URIs to a public gateway URL.
+ * Passes through normal HTTP URLs unchanged.
+ */
+function resolveIPFS(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("ipfs://")) {
+    return url.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+  }
+  if (url.startsWith("ar://")) {
+    return url.replace("ar://", "https://arweave.net/");
+  }
+  return url;
+}
 
 // ============================================================================
 // MARKETPLACE PAGE
@@ -226,22 +243,31 @@ export default function MarketplacePage() {
         {!isLoading && records.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {records.map((record, recordIndex) => {
-              // Parse metadata
+              // Parse metadata safely
               let metadata: {
                 title?: string;
                 description?: string;
                 fileName?: string;
+                image?: string;
+                fileUrl?: string;
+                fileType?: string;
               } = {};
               try {
                 metadata = JSON.parse(record.data?.metadataURI || "{}");
               } catch {
-                // Not JSON
+                // Not JSON — treat raw string as title
+                if (record.data?.metadataURI) {
+                  metadata = { title: record.data.metadataURI };
+                }
               }
 
               const isActive = Number(record.data?.status) === 0;
               const timestamp = Number(record.data?.timestamp || 0);
               const licenseInfo = licenseMap.get(recordIndex);
               const hasLicense = !!licenseInfo;
+
+              // Resolve image URL (supports ipfs://, ar://, and http(s)://)
+              const imageUrl = resolveIPFS(metadata.image || metadata.fileUrl);
 
               return (
                 <Card
@@ -250,8 +276,51 @@ export default function MarketplacePage() {
                     !isActive ? "opacity-50" : ""
                   }`}
                 >
-                  {/* Card top gradient */}
-                  <div className="h-1.5 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 opacity-60 group-hover:opacity-100 transition-opacity" />
+                  {/* Media Thumbnail */}
+                  <div className="relative h-48 w-full overflow-hidden bg-white/5">
+                    {imageUrl ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imageUrl}
+                          alt={metadata.title || "Asset"}
+                          className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                          onError={(e) => {
+                            // On load failure, hide the image and show fallback
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                            const fallback = (e.target as HTMLImageElement)
+                              .nextElementSibling;
+                            if (fallback)
+                              (fallback as HTMLElement).style.display = "flex";
+                          }}
+                        />
+                        {/* Hidden fallback, shown on img error */}
+                        <div
+                          className="absolute inset-0 items-center justify-center bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-pink-500/10"
+                          style={{ display: "none" }}
+                        >
+                          <FileText className="w-12 h-12 text-white/20" />
+                        </div>
+                      </>
+                    ) : (
+                      /* No image — decorative fallback */
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-pink-500/10">
+                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-2">
+                          {metadata.fileType?.startsWith("image") ? (
+                            <ImageIcon className="w-8 h-8 text-white/20" />
+                          ) : (
+                            <FileText className="w-8 h-8 text-white/20" />
+                          )}
+                        </div>
+                        <span className="text-[10px] text-white/20 uppercase tracking-widest">
+                          {metadata.fileType || "Digital Asset"}
+                        </span>
+                      </div>
+                    )}
+                    {/* Gradient overlay for text readability */}
+                    <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
+                  </div>
 
                   <CardContent className="p-5 space-y-4">
                     {/* Title & status */}

@@ -12,6 +12,7 @@ import {
   Search,
   Ban,
   Tag,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Card,
@@ -24,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WalletButton } from "@/components/WalletButton";
 import { CreateLicenseModal } from "@/components/CreateLicenseModal";
+import { DisputeModal } from "@/components/DisputeModal";
 import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
@@ -41,6 +43,9 @@ export default function ProfilePage() {
   );
   const [revokingId, setRevokingId] = useState<`0x${string}` | null>(null);
   const [licenseRecordId, setLicenseRecordId] = useState<`0x${string}` | null>(
+    null,
+  );
+  const [disputeRecordId, setDisputeRecordId] = useState<`0x${string}` | null>(
     null,
   );
 
@@ -399,6 +404,19 @@ export default function ProfilePage() {
                               </Button>
                             </>
                           )}
+
+                          {/* Report Button - Only for OTHER users' active records */}
+                          {!isOwnProfile && isActive && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDisputeRecordId(record!.id!)}
+                              className="h-7 px-2 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
+                            >
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Report
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </Card>
@@ -416,6 +434,15 @@ export default function ProfilePage() {
           isOpen={!!licenseRecordId}
           onClose={() => setLicenseRecordId(null)}
           recordId={licenseRecordId}
+        />
+      )}
+
+      {/* Dispute Modal */}
+      {disputeRecordId && (
+        <DisputeModal
+          isOpen={!!disputeRecordId}
+          onClose={() => setDisputeRecordId(null)}
+          recordId={disputeRecordId}
         />
       )}
     </div>
