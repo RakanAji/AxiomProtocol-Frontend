@@ -157,7 +157,67 @@ export function useInitiateDispute() {
 }
 
 // ============================================================================
-// useActiveDisputes — batched read: getActiveDisputes → getDispute
+// useRespondToDispute — write: respondToDispute(bytes32, string)
+// ============================================================================
+
+export function useRespondToDispute() {
+  const {
+    writeContract,
+    data: txHash,
+    isPending,
+    error: writeError,
+  } = useWriteContract();
+
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    error: confirmError,
+  } = useWaitForTransactionReceipt({ hash: txHash });
+
+  // Toasts
+  useEffect(() => {
+    if (isConfirmed) {
+      toast.success("Response submitted", {
+        description: "Your defense evidence has been recorded on-chain.",
+      });
+    }
+  }, [isConfirmed]);
+
+  useEffect(() => {
+    if (writeError) {
+      toast.error("Transaction failed", {
+        description: writeError.message.slice(0, 120),
+      });
+    }
+  }, [writeError]);
+
+  useEffect(() => {
+    if (confirmError) {
+      toast.error("Confirmation failed", {
+        description: confirmError.message.slice(0, 120),
+      });
+    }
+  }, [confirmError]);
+
+  const respondToDispute = (disputeId: `0x${string}`, responseURI: string) => {
+    writeContract({
+      ...routerConfig,
+      functionName: "respondToDispute",
+      args: [disputeId, responseURI],
+    });
+  };
+
+  return {
+    respondToDispute,
+    isPending,
+    isConfirming,
+    isConfirmed,
+    txHash,
+  };
+}
+
+// ============================================================================
+// useMyDisputes — batched read: getDisputesByChallenger → getDispute
 // ============================================================================
 
 export interface DisputeDetail {
@@ -178,22 +238,23 @@ export interface DisputeDetail {
   responseURI: string;
 }
 
-export function useActiveDisputes() {
-  // Step 1: Fetch active dispute IDs
+export function useMyDisputes(userAddress: `0x${string}` | undefined) {
+  // Step 1: Fetch dispute IDs filed by this user
   const {
-    data: activeIdsRaw,
+    data: disputeIdsRaw,
     isLoading: isLoadingIds,
     error: idsError,
   } = useReadContract({
     ...routerConfig,
-    functionName: "getActiveDisputes",
-    args: [BigInt(0), BigInt(50)],
+    functionName: "getDisputesByChallenger",
+    args: userAddress ? [userAddress] : undefined,
+    query: { enabled: !!userAddress },
   });
 
-  const activeIds = (activeIdsRaw as `0x${string}`[]) ?? [];
+  const disputeIds = (disputeIdsRaw as `0x${string}`[]) ?? [];
 
   // Step 2: Batch fetch individual dispute details
-  const disputeContracts = activeIds.map((id) => ({
+  const disputeContracts = disputeIds.map((id) => ({
     ...routerConfig,
     functionName: "getDispute" as const,
     args: [id] as const,
@@ -202,7 +263,7 @@ export function useActiveDisputes() {
   const { data: disputesRaw, isLoading: isLoadingDetails } = useReadContracts({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     contracts: disputeContracts as any[],
-    query: { enabled: activeIds.length > 0 },
+    query: { enabled: disputeIds.length > 0 },
   });
 
   // Parse results
@@ -235,7 +296,7 @@ export function useActiveDisputes() {
 
   return {
     disputes,
-    totalActive: activeIds.length,
+    totalDisputes: disputeIds.length,
     isLoading: isLoadingIds || isLoadingDetails,
     error: idsError,
   };

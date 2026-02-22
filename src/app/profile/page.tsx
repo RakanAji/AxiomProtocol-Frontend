@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { WalletButton } from "@/components/WalletButton";
 import { CreateLicenseModal } from "@/components/CreateLicenseModal";
 import { DisputeModal } from "@/components/DisputeModal";
+import { RecordDisputeAction } from "@/components/RecordDisputeAction";
 import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
@@ -403,6 +404,11 @@ export default function ProfilePage() {
                                 )}
                               </Button>
                             </>
+                          )}
+
+                          {/* Respond to Dispute - Only for OWN active records */}
+                          {isOwnProfile && isActive && (
+                            <RecordDisputeAction recordId={record!.id!} />
                           )}
 
                           {/* Report Button - Only for OTHER users' active records */}
