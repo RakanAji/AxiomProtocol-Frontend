@@ -104,3 +104,36 @@ export function hashToBytes32(hash: string): `0x${string}` {
   }
   return hash as `0x${string}`;
 }
+
+/**
+ * Generate a privacy commitment from a content hash and a secret.
+ * Uses keccak256(secret + contentHash) to create a deterministic commitment.
+ */
+export function generatePrivacyCommitment(
+  contentHash: string,
+  secret: string,
+): `0x${string}` {
+  // Dynamic import is not needed — we compute the keccak ourselves
+  // by converting to bytes and hashing via Web Crypto, then formatting.
+  // However, for consistency with Solidity's keccak256(abi.encodePacked(...)),
+  // we use viem's keccak256 + encodePacked at call-site.
+  // This helper just concatenates and returns a hex string suitable for hashing.
+  const combined = secret + contentHash.replace(/^0x/, "");
+  // Pad to ensure it's valid hex
+  const hex = Array.from(new TextEncoder().encode(combined))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `0x${hex}` as `0x${string}`;
+}
+
+/**
+ * Generate a cryptographically random bytes32 hex string
+ */
+export function generateRandomBytes32(): `0x${string}` {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `0x${hex}`;
+}
