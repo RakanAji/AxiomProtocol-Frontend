@@ -7,38 +7,48 @@ import { Activity, Database, Coins, Server, RefreshCw } from "lucide-react";
 import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
+  IS_AXIOM_ROUTER_CONFIGURED,
+  ROUTER_CONFIGURATION_ERROR,
 } from "@/lib/contracts/axiom-router";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
 
 // Contract read configurations
 const contractConfig = {
   address: AXIOM_ROUTER_ADDRESS,
   abi: AXIOM_ROUTER_ABI,
+  chainId: TARGET_CHAIN_ID,
 } as const;
 
 export default function StatsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch all protocol stats in parallel
-  const { data, isLoading, refetch } = useReadContracts({
+  const { data, isLoading, error, refetch } = useReadContracts({
     contracts: [
       { ...contractConfig, functionName: "getTotalRecords" },
       { ...contractConfig, functionName: "getTotalFeesCollected" },
       { ...contractConfig, functionName: "getBaseFee" },
     ],
+    query: { enabled: IS_AXIOM_ROUTER_CONFIGURED },
   });
 
   // Parse results
   const totalRecords = data?.[0]?.result as bigint | undefined;
   const totalFees = data?.[1]?.result as bigint | undefined;
   const baseFee = data?.[2]?.result as bigint | undefined;
+  const allReadsSucceeded =
+    !!data && data.length === 3 && data.every((result) => result.status === "success");
 
   // Handle refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await refetch();
-    setTimeout(() => setIsRefreshing(false), 500);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Format large numbers with commas
@@ -63,13 +73,16 @@ export default function StatsPage() {
       <div className="max-w-6xl mx-auto space-y-10">
         {/* Hero Section */}
         <div className="text-center space-y-4">
-          {/* Live Indicator */}
+          {/* Read state indicator */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
             <div className="relative flex items-center justify-center">
-              <div className="w-2.5 h-2.5 rounded-full bg-axiom-green" />
-              <div className="absolute w-2.5 h-2.5 rounded-full bg-axiom-green animate-ping" />
+              <div
+                className={`w-2.5 h-2.5 rounded-full ${allReadsSucceeded ? "bg-axiom-green" : "bg-amber-400"}`}
+              />
             </div>
-            <span className="text-sm text-white/70">Live</span>
+            <span className="text-sm text-white/70">
+              {allReadsSucceeded ? "On-chain reads available" : "Read status unavailable"}
+            </span>
           </div>
 
           {/* Title */}
@@ -77,8 +90,7 @@ export default function StatsPage() {
             Axiom <span className="text-gradient">Network Status</span>
           </h1>
           <p className="text-white/60 max-w-xl mx-auto">
-            Real-time protocol metrics and transparency dashboard for the Axiom
-            Protocol on the blockchain.
+            Direct contract reads from the configured Sepolia deployment.
           </p>
 
           {/* Refresh Button */}
@@ -87,7 +99,9 @@ export default function StatsPage() {
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              disabled={isLoading || isRefreshing}
+              disabled={
+                !IS_AXIOM_ROUTER_CONFIGURED || isLoading || isRefreshing
+              }
               className="gap-2"
             >
               <RefreshCw
@@ -98,16 +112,27 @@ export default function StatsPage() {
           </div>
         </div>
 
+        {!IS_AXIOM_ROUTER_CONFIGURED && (
+          <p className="rounded-xl border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-200">
+            {ROUTER_CONFIGURATION_ERROR}
+          </p>
+        )}
+        {error && (
+          <p className="rounded-xl border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-200">
+            Metrics query failed: {error.message.slice(0, 160)}
+          </p>
+        )}
+
         {/* Stats Grid */}
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Total Truths Mined */}
+          {/* Total registrations */}
           <StatCard
             icon={Database}
             iconColor="text-axiom-cyan"
             iconBgColor="bg-axiom-cyan/20"
             glowColor="shadow-[0_0_60px_-15px_rgba(0,245,255,0.5)]"
             borderColor="hover:border-axiom-cyan/40"
-            title="Total Truths Mined"
+            title="Registered Records"
             value={formatNumber(totalRecords)}
             subtitle="Content records registered"
             isLoading={isLoading}
@@ -120,7 +145,7 @@ export default function StatsPage() {
             iconBgColor="bg-axiom-purple/20"
             glowColor="shadow-[0_0_60px_-15px_rgba(168,85,247,0.5)]"
             borderColor="hover:border-axiom-purple/40"
-            title="Protocol Revenue"
+            title="Registration Fees"
             value={formatETH(totalFees)}
             subtitle="Total fees collected"
             isLoading={isLoading}
@@ -135,7 +160,7 @@ export default function StatsPage() {
             borderColor="hover:border-axiom-pink/40"
             title="Current Base Fee"
             value={formatETH(baseFee)}
-            subtitle="Cost to register content"
+            subtitle="Default fee before per-wallet rates"
             isLoading={isLoading}
           />
 
@@ -147,9 +172,9 @@ export default function StatsPage() {
             glowColor="shadow-[0_0_60px_-15px_rgba(16,185,129,0.5)]"
             borderColor="hover:border-axiom-green/40"
             title="System Status"
-            value="Operational"
-            valueColor="text-axiom-green"
-            subtitle="All systems running"
+            value={allReadsSucceeded ? "Reads OK" : "Unavailable"}
+            valueColor={allReadsSucceeded ? "text-axiom-green" : "text-amber-300"}
+            subtitle="Current RPC/contract read result"
             isLoading={isLoading}
           />
         </div>

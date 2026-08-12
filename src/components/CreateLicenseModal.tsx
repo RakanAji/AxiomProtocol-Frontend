@@ -1,213 +1,361 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, Loader2, Tag, DollarSign, Percent, Lock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Calendar, Coins, Loader2, Lock, Percent, Tag, X } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCreateLicense } from "@/hooks/useLicense";
+import { useCreateLicense, useTokenMetadata } from "@/hooks/useLicense";
+import {
+  LICENSE_TYPES,
+  ZERO_ADDRESS,
+  isEthereumAddress,
+} from "@/lib/axiom-domain";
 
 interface CreateLicenseModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   recordId: `0x${string}`;
 }
+
+type PaymentMode = "eth" | "erc20";
 
 export function CreateLicenseModal({
   isOpen,
   onClose,
+  onSuccess,
   recordId,
 }: CreateLicenseModalProps) {
-  const [licenseType, setLicenseType] = useState<number>(1);
-  const [priceEth, setPriceEth] = useState<string>("");
-  const [royaltyPercent, setRoyaltyPercent] = useState<number>(5);
-  const [exclusive, setExclusive] = useState<boolean>(false);
+  const [licenseType, setLicenseType] = useState(1);
+  const [price, setPrice] = useState("0");
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("eth");
+  const [tokenAddress, setTokenAddress] = useState("");
+  const [royaltyPercent, setRoyaltyPercent] = useState("5");
+  const [validUntil, setValidUntil] = useState("");
+  const [exclusive, setExclusive] = useState(false);
+  const [sublicensable, setSublicensable] = useState(false);
+  const [customTermsURI, setCustomTermsURI] = useState("");
 
-  const { createLicense, isPending, isConfirming, isConfirmed, reset } =
-    useCreateLicense();
+  const {
+    createLicense,
+    isPending,
+    isConfirming,
+    isConfirmed,
+    error,
+    reset,
+  } = useCreateLicense();
 
-  // Close modal on success
+  const parsedTokenAddress =
+    paymentMode === "erc20" && isEthereumAddress(tokenAddress)
+      ? (tokenAddress as `0x${string}`)
+      : undefined;
+  const tokenQuery = useTokenMetadata(parsedTokenAddress);
+  const isBusy = isPending || isConfirming;
+
+  const resetForm = () => {
+    setLicenseType(1);
+    setPrice("0");
+    setPaymentMode("eth");
+    setTokenAddress("");
+    setRoyaltyPercent("5");
+    setValidUntil("");
+    setExclusive(false);
+    setSublicensable(false);
+    setCustomTermsURI("");
+  };
+
   useEffect(() => {
-    if (isConfirmed) {
-      setTimeout(() => {
-        onClose();
-        reset();
-        // Reset form
-        setPriceEth("");
-        setRoyaltyPercent(5);
-        setExclusive(false);
-        setLicenseType(1);
-      }, 1500);
+    if (isOpen) {
+      reset();
+      resetForm();
     }
-  }, [isConfirmed, onClose, reset]);
+  }, [isOpen, reset]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isConfirmed) return;
+    onSuccess?.();
+    onClose();
+  }, [isConfirmed, onClose, onSuccess]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const royaltyBps = useMemo(() => {
+    const percent = Number(royaltyPercent);
+    return Number.isFinite(percent) ? Math.round(percent * 100) : -1;
+  }, [royaltyPercent]);
+
+  const expiryTimestamp = validUntil
+    ? Math.floor(new Date(validUntil).getTime() / 1000)
+    : 0;
+  const tokenInvalid =
+    paymentMode === "erc20" &&
+    (!parsedTokenAddress || !!tokenQuery.error || !tokenQuery.metadata);
+  const customTermsMissing = licenseType === 11 && !customTermsURI.trim();
+  const formInvalid =
+    price.trim() === "" ||
+    Number(price) < 0 ||
+    royaltyBps < 0 ||
+    royaltyBps > 10_000 ||
+    tokenInvalid ||
+    customTermsMissing ||
+    (validUntil !== "" && expiryTimestamp <= Date.now() / 1000);
+
+  const handleClose = () => {
+    if (!isBusy) onClose();
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (formInvalid) return;
     createLicense({
       recordId,
       licenseType,
-      priceEth: priceEth || "0",
-      royaltyPercent,
+      price,
+      paymentToken:
+        paymentMode === "eth" ? ZERO_ADDRESS : parsedTokenAddress!,
+      paymentTokenDecimals:
+        paymentMode === "eth" ? 18 : tokenQuery.metadata!.decimals,
+      royaltyBps,
+      validUntil: expiryTimestamp,
       exclusive,
+      sublicensable,
+      customTermsURI,
     });
   };
 
-  const isLoading = isPending || isConfirming;
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        aria-label="Close license modal"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        disabled={isBusy}
+        onClick={handleClose}
       />
-
-      {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-cyan-500/10">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-license-title"
+        className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-black/90 shadow-2xl shadow-cyan-500/10"
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-black/95 p-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
-              <Tag className="w-5 h-5 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-purple-500">
+              <Tag className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">
-                Create License
+              <h2 id="create-license-title" className="font-semibold text-white">
+                Create license template
               </h2>
-              <p className="text-xs text-white/40 font-mono">
-                {recordId.slice(0, 10)}...{recordId.slice(-8)}
+              <p className="font-mono text-xs text-white/40">
+                {recordId.slice(0, 10)}…{recordId.slice(-8)}
               </p>
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+            aria-label="Close"
+            disabled={isBusy}
+            onClick={handleClose}
+            className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-30"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* License Type */}
+        <form onSubmit={handleSubmit} className="space-y-5 p-5">
           <div className="space-y-2">
-            <Label className="text-sm text-white/70 flex items-center gap-2">
-              <Tag className="w-3.5 h-3.5" />
-              License Type
+            <Label htmlFor="license-type" className="flex items-center gap-2">
+              <Tag className="h-3.5 w-3.5" /> License type
             </Label>
             <select
+              id="license-type"
               value={licenseType}
-              onChange={(e) => setLicenseType(Number(e.target.value))}
-              className="w-full h-10 px-3 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all appearance-none cursor-pointer"
+              onChange={(event) => setLicenseType(Number(event.target.value))}
+              className="h-10 w-full rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-white"
             >
-              <option value={1} className="bg-gray-900">
-                Personal Use
-              </option>
-              <option value={2} className="bg-gray-900">
-                Commercial Use
-              </option>
+              {Object.entries(LICENSE_TYPES)
+                .filter(([value]) => Number(value) !== 0)
+                .map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
             </select>
           </div>
 
-          {/* Price (ETH) */}
-          <div className="space-y-2">
-            <Label className="text-sm text-white/70 flex items-center gap-2">
-              <DollarSign className="w-3.5 h-3.5" />
-              Price (ETH)
-            </Label>
-            <div className="relative">
-              <Input
-                type="number"
-                step="0.001"
-                min="0"
-                placeholder="0.01"
-                value={priceEth}
-                onChange={(e) => setPriceEth(e.target.value)}
-                className="bg-white/5 border-white/10 text-white pr-14"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40 font-mono">
-                ETH
-              </span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="payment-mode" className="flex items-center gap-2">
+                <Coins className="h-3.5 w-3.5" /> Payment
+              </Label>
+              <select
+                id="payment-mode"
+                value={paymentMode}
+                onChange={(event) => setPaymentMode(event.target.value as PaymentMode)}
+                className="h-10 w-full rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-white"
+              >
+                <option value="eth">Native ETH</option>
+                <option value="erc20">ERC-20 token</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="license-price">Price</Label>
+              <div className="relative">
+                <Input
+                  id="license-price"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={price}
+                  onChange={(event) => setPrice(event.target.value)}
+                  className="border-white/10 bg-white/5 pr-16"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">
+                  {paymentMode === "eth"
+                    ? "ETH"
+                    : tokenQuery.metadata?.symbol || "TOKEN"}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Royalty (%) */}
-          <div className="space-y-2">
-            <Label className="text-sm text-white/70 flex items-center gap-2">
-              <Percent className="w-3.5 h-3.5" />
-              Royalty (%)
-            </Label>
-            <div className="relative">
+          {paymentMode === "erc20" && (
+            <div className="space-y-2">
+              <Label htmlFor="payment-token">ERC-20 token address</Label>
               <Input
+                id="payment-token"
+                value={tokenAddress}
+                onChange={(event) => setTokenAddress(event.target.value.trim())}
+                placeholder="0x…"
+                className="border-white/10 bg-white/5 font-mono text-xs"
+              />
+              {parsedTokenAddress && tokenQuery.isLoading && (
+                <p className="text-xs text-white/40">Reading token metadata…</p>
+              )}
+              {tokenQuery.metadata && (
+                <p className="text-xs text-emerald-300">
+                  {tokenQuery.metadata.symbol}, {tokenQuery.metadata.decimals} decimals
+                </p>
+              )}
+              {tokenAddress && tokenInvalid && !tokenQuery.isLoading && (
+                <p className="text-xs text-red-300">
+                  Enter an ERC-20 contract exposing symbol() and decimals().
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="royalty" className="flex items-center gap-2">
+                <Percent className="h-3.5 w-3.5" /> Royalty
+              </Label>
+              <Input
+                id="royalty"
                 type="number"
-                step="1"
                 min="0"
                 max="100"
-                placeholder="5"
+                step="0.01"
                 value={royaltyPercent}
-                onChange={(e) => setRoyaltyPercent(Number(e.target.value) || 0)}
-                className="bg-white/5 border-white/10 text-white pr-14"
+                onChange={(event) => setRoyaltyPercent(event.target.value)}
+                className="border-white/10 bg-white/5"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">
-                = {royaltyPercent * 100} bps
-              </span>
+              <p className="text-[10px] text-white/35">{royaltyBps} basis points</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="valid-until" className="flex items-center gap-2">
+                <Calendar className="h-3.5 w-3.5" /> Template expiry
+              </Label>
+              <Input
+                id="valid-until"
+                type="datetime-local"
+                value={validUntil}
+                onChange={(event) => setValidUntil(event.target.value)}
+                className="border-white/10 bg-white/5 text-xs"
+              />
+              <p className="text-[10px] text-white/35">Blank means perpetual.</p>
             </div>
           </div>
 
-          {/* Exclusive Toggle */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-white/60" />
-              <span className="text-sm text-white/80">Exclusive License</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setExclusive(!exclusive)}
-              className={`relative w-11 h-6 rounded-full transition-colors ${
-                exclusive ? "bg-cyan-500" : "bg-white/20"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform ${
-                  exclusive ? "translate-x-5" : "translate-x-0"
-                }`}
+          {licenseType === 11 && (
+            <div className="space-y-2">
+              <Label htmlFor="custom-terms">Custom terms URI</Label>
+              <Input
+                id="custom-terms"
+                value={customTermsURI}
+                onChange={(event) => setCustomTermsURI(event.target.value)}
+                placeholder="ipfs://… or https://…"
+                className="border-white/10 bg-white/5"
               />
-            </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <Toggle
+              icon={Lock}
+              label="Exclusive"
+              checked={exclusive}
+              onChange={setExclusive}
+            />
+            <Toggle
+              icon={Tag}
+              label="Sublicensable"
+              checked={sublicensable}
+              onChange={setSublicensable}
+            />
           </div>
 
-          {/* Defaults info */}
-          <div className="p-3 rounded-lg bg-white/5 border border-white/5 text-xs text-white/40 space-y-1">
-            <p>• Payment: Native ETH</p>
-            <p>• Validity: Forever (no expiry)</p>
-            <p>• Sublicensable: No</p>
-          </div>
+          {error && <p className="text-sm text-red-300">{error.message.slice(0, 180)}</p>}
 
-          {/* Submit */}
           <Button
             type="submit"
-            disabled={isLoading || !priceEth}
-            className="w-full h-11 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white font-semibold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
+            disabled={isBusy || formInvalid}
+            className="h-11 w-full bg-gradient-to-r from-cyan-500 to-purple-500"
           >
-            {isPending ? (
+            {isBusy ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Confirm in Wallet...
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {isPending ? "Confirm in wallet…" : "Confirming…"}
               </span>
-            ) : isConfirming ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Confirming on Chain...
-              </span>
-            ) : isConfirmed ? (
-              <span className="text-emerald-200">✓ License Created!</span>
             ) : (
-              "Create License"
+              "Create license"
             )}
           </Button>
         </form>
       </div>
     </div>
+  );
+}
+
+function Toggle({
+  icon: Icon,
+  label,
+  checked,
+  onChange,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={checked}
+      onClick={() => onChange(!checked)}
+      className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-3"
+    >
+      <span className="flex items-center gap-2 text-sm text-white/75">
+        <Icon className="h-4 w-4" /> {label}
+      </span>
+      <span
+        className={`h-5 w-9 rounded-full p-0.5 transition ${checked ? "bg-cyan-500" : "bg-white/20"}`}
+      >
+        <span
+          className={`block h-4 w-4 rounded-full bg-white transition ${checked ? "translate-x-4" : ""}`}
+        />
+      </span>
+    </button>
   );
 }

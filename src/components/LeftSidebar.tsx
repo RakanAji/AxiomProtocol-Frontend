@@ -9,20 +9,23 @@ import {
   Activity,
   User,
   FileCheck,
-  AlertTriangle,
   Clock,
   Fingerprint,
 } from "lucide-react";
 import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
+  IS_AXIOM_ROUTER_CONFIGURED,
+  ROUTER_CONFIGURATION_ERROR,
 } from "@/lib/contracts/axiom-router";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
 
 const contractConfig = {
   address: AXIOM_ROUTER_ADDRESS,
   abi: AXIOM_ROUTER_ABI,
+  chainId: TARGET_CHAIN_ID,
 } as const;
 
 interface RecentFile {
@@ -36,13 +39,14 @@ export function LeftSidebar() {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
 
   // Protocol stats
-  const { data, isLoading } = useReadContracts({
+  const { data, isLoading, error: statsError } = useReadContracts({
     contracts: [
       { ...contractConfig, functionName: "getTotalRecords" },
       { ...contractConfig, functionName: "getTotalFeesCollected" },
       { ...contractConfig, functionName: "getBaseFee" },
     ],
     query: {
+      enabled: IS_AXIOM_ROUTER_CONFIGURED,
       refetchInterval: 30000,
     },
   });
@@ -51,18 +55,20 @@ export function LeftSidebar() {
   const { data: userRecords } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
     abi: AXIOM_ROUTER_ABI,
+    chainId: TARGET_CHAIN_ID,
     functionName: "getRecordsByIssuer",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: IS_AXIOM_ROUTER_CONFIGURED && !!address },
   });
 
   // User's identity
   const { data: userIdentity } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
     abi: AXIOM_ROUTER_ABI,
+    chainId: TARGET_CHAIN_ID,
     functionName: "resolveIdentity",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: IS_AXIOM_ROUTER_CONFIGURED && !!address },
   });
 
   // Load recent files from localStorage
@@ -85,8 +91,9 @@ export function LeftSidebar() {
 
   const userRecordCount =
     (userRecords as `0x${string}`[] | undefined)?.length || 0;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const identity = userIdentity as any;
+  const identity = userIdentity as
+    | { registeredAt?: bigint; isVerified?: boolean }
+    | undefined;
   const hasIdentity = identity && Number(identity.registeredAt) > 0;
   const isVerified = identity?.isVerified;
 
@@ -135,8 +142,16 @@ export function LeftSidebar() {
               icon={Activity}
               iconColor="text-axiom-green"
               label="Status"
-              value={isLoading ? "..." : "Operational"}
-              valueColor="text-axiom-green"
+              value={
+                !IS_AXIOM_ROUTER_CONFIGURED
+                  ? "Not configured"
+                  : statsError
+                    ? "Read failed"
+                    : isLoading
+                      ? "..."
+                      : "Connected"
+              }
+              valueColor={statsError ? "text-red-300" : "text-axiom-green"}
             />
           </div>
         </div>
@@ -176,14 +191,15 @@ export function LeftSidebar() {
                     : "text-white/40"
                 }
               />
-              <StatItem
-                icon={AlertTriangle}
-                iconColor="text-amber-400"
-                label="Disputes"
-                value="0"
-              />
             </div>
           </div>
+        )}
+
+        {/* Recent Files */}
+        {!IS_AXIOM_ROUTER_CONFIGURED && (
+          <p className="rounded-lg border border-red-500/20 bg-red-950/20 p-2 text-[10px] text-red-200">
+            {ROUTER_CONFIGURATION_ERROR}
+          </p>
         )}
 
         {/* Recent Files */}
@@ -232,7 +248,7 @@ export function LeftSidebar() {
               href="/changelog"
               className="px-3 py-2 text-xs text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
             >
-              📋 Changelog
+              📋 Usage Guide
             </Link>
           </div>
         </div>

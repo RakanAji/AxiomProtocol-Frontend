@@ -34,7 +34,7 @@ const secondaryLinks = [
   { href: "/search", label: "Search", icon: Search },
   { href: "/stats", label: "Stats", icon: Activity },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { href: "/changelog", label: "Changelog", icon: BookOpen },
+  { href: "/changelog", label: "Guide", icon: BookOpen },
 ];
 
 const allLinks = [...primaryLinks, ...secondaryLinks];

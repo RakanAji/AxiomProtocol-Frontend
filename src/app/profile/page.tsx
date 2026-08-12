@@ -30,10 +30,17 @@ import { RecordDisputeAction } from "@/components/RecordDisputeAction";
 import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
+  IS_AXIOM_ROUTER_CONFIGURED,
+  ROUTER_CONFIGURATION_ERROR,
 } from "@/lib/contracts/axiom-router";
 import { useMyIdentity, useIdentity } from "@/hooks/useAxiomContract";
 import { useRevokeContent } from "@/hooks/useAxiomContract";
 import { toast } from "sonner";
+import {
+  contentStatusLabel,
+  isEthereumAddress,
+} from "@/lib/axiom-domain";
+import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
 
 export default function ProfilePage() {
   const { isConnected, address } = useAccount();
@@ -49,6 +56,16 @@ export default function ProfilePage() {
   const [disputeRecordId, setDisputeRecordId] = useState<`0x${string}` | null>(
     null,
   );
+
+  useEffect(() => {
+    const queryAddress = new URLSearchParams(window.location.search)
+      .get("address")
+      ?.trim();
+    if (queryAddress && isEthereumAddress(queryAddress)) {
+      setSearchAddress(queryAddress);
+      setViewingAddress(queryAddress);
+    }
+  }, []);
 
   // Revoke hook
   const {
@@ -77,9 +94,10 @@ export default function ProfilePage() {
   } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
     abi: AXIOM_ROUTER_ABI,
+    chainId: TARGET_CHAIN_ID,
     functionName: "getRecordsByIssuer",
     args: targetAddress ? [targetAddress] : undefined,
-    query: { enabled: !!targetAddress },
+    query: { enabled: IS_AXIOM_ROUTER_CONFIGURED && !!targetAddress },
   });
 
   // Fetch all records in parallel
@@ -87,6 +105,7 @@ export default function ProfilePage() {
     (recordIds as `0x${string}`[])?.map((id) => ({
       address: AXIOM_ROUTER_ADDRESS,
       abi: AXIOM_ROUTER_ABI,
+      chainId: TARGET_CHAIN_ID,
       functionName: "getRecord" as const,
       args: [id] as const,
     })) || [];
@@ -94,6 +113,7 @@ export default function ProfilePage() {
   const {
     data: recordsData,
     isLoading: isLoadingRecordDetails,
+    error: recordsError,
     refetch: refetchRecordDetails,
   } = useReadContracts({
     contracts: recordContracts,
@@ -129,14 +149,20 @@ export default function ProfilePage() {
   };
 
   const handleSearch = () => {
-    if (/^0x[a-fA-F0-9]{40}$/.test(searchAddress)) {
+    if (isEthereumAddress(searchAddress)) {
       setViewingAddress(searchAddress as `0x${string}`);
+      window.history.replaceState(
+        null,
+        "",
+        `/profile?address=${encodeURIComponent(searchAddress)}`,
+      );
     }
   };
 
   const handleViewOwn = () => {
     setViewingAddress(null);
     setSearchAddress("");
+    window.history.replaceState(null, "", "/profile");
   };
 
   // Check if identity exists
@@ -176,6 +202,13 @@ export default function ProfilePage() {
         </div>
 
         {/* Search Other Profiles */}
+        {!IS_AXIOM_ROUTER_CONFIGURED && (
+          <Card className="rounded-2xl border-red-500/30 bg-red-950/30 p-4 text-sm text-red-200">
+            {ROUTER_CONFIGURATION_ERROR}
+          </Card>
+        )}
+
+        {/* Search Other Profiles */}
         <Card className="border-white/10 bg-black/40 backdrop-blur-xl p-4 rounded-2xl">
           <div className="flex gap-3">
             <Input
@@ -186,7 +219,7 @@ export default function ProfilePage() {
             />
             <Button
               onClick={handleSearch}
-              disabled={!/^0x[a-fA-F0-9]{40}$/.test(searchAddress)}
+              disabled={!isEthereumAddress(searchAddress)}
               variant="outline"
             >
               <Search className="w-4 h-4 mr-2" />
@@ -218,6 +251,12 @@ export default function ProfilePage() {
           <div className="flex justify-center p-10">
             <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
           </div>
+        )}
+
+        {recordsError && (
+          <Card className="rounded-2xl border-red-500/30 bg-red-950/30 p-4 text-sm text-red-200">
+            Record query failed: {recordsError.message.slice(0, 180)}
+          </Card>
         )}
 
         {/* Profile Card */}
@@ -372,7 +411,7 @@ export default function ProfilePage() {
                                 : "bg-red-500/20 text-red-300"
                             }`}
                           >
-                            {isActive ? "Active" : "Revoked"}
+                            {contentStatusLabel(Number(record!.status))}
                           </span>
 
                           {/* License & Revoke Buttons - Only for own profile and active records */}

@@ -8,11 +8,14 @@ import { RespondDisputeModal } from "@/components/RespondDisputeModal";
 import {
   AXIOM_ROUTER_ABI,
   AXIOM_ROUTER_ADDRESS,
+  IS_AXIOM_ROUTER_CONFIGURED,
 } from "@/lib/contracts/axiom-router";
+import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
 
 const routerConfig = {
   address: AXIOM_ROUTER_ADDRESS,
   abi: AXIOM_ROUTER_ABI,
+  chainId: TARGET_CHAIN_ID,
 } as const;
 
 interface RecordDisputeActionProps {
@@ -23,10 +26,11 @@ export function RecordDisputeAction({ recordId }: RecordDisputeActionProps) {
   const [showModal, setShowModal] = useState(false);
 
   // Step 1: Get dispute IDs for this record
-  const { data: disputeIdsRaw } = useReadContract({
+  const { data: disputeIdsRaw, refetch: refetchDisputeIds } = useReadContract({
     ...routerConfig,
     functionName: "getDisputesByRecord",
     args: [recordId],
+    query: { enabled: IS_AXIOM_ROUTER_CONFIGURED },
   });
 
   const disputeIds = (disputeIdsRaw as `0x${string}`[]) ?? [];
@@ -34,15 +38,14 @@ export function RecordDisputeAction({ recordId }: RecordDisputeActionProps) {
     disputeIds.length > 0 ? disputeIds[disputeIds.length - 1] : undefined;
 
   // Step 2: Get the last dispute's details
-  const { data: disputeRaw } = useReadContract({
+  const { data: disputeRaw, refetch: refetchDispute } = useReadContract({
     ...routerConfig,
     functionName: "getDispute",
     args: lastDisputeId ? [lastDisputeId] : undefined,
-    query: { enabled: !!lastDisputeId },
+    query: { enabled: IS_AXIOM_ROUTER_CONFIGURED && !!lastDisputeId },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dispute = disputeRaw as any;
+  const dispute = disputeRaw as { status?: number | bigint } | undefined;
   const isPending = dispute && Number(dispute.status ?? 255) === 0;
 
   // Only render if there's a PENDING dispute
@@ -64,6 +67,10 @@ export function RecordDisputeAction({ recordId }: RecordDisputeActionProps) {
         <RespondDisputeModal
           isOpen={showModal}
           onClose={() => setShowModal(false)}
+          onSuccess={() => {
+            void refetchDisputeIds();
+            void refetchDispute();
+          }}
           disputeId={lastDisputeId}
         />
       )}

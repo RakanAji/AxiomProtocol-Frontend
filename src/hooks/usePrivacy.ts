@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  useAccount,
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
@@ -10,12 +11,18 @@ import { toast } from "sonner";
 import {
   AXIOM_ROUTER_ABI,
   AXIOM_ROUTER_ADDRESS,
+  IS_AXIOM_ROUTER_CONFIGURED,
 } from "@/lib/contracts/axiom-router";
-import { useProtocolFee } from "@/hooks/useAxiomContract";
+import { useNetworkStatus, useRegistrationFee } from "@/hooks/useAxiomContract";
+import {
+  PRIVACY_FEATURE_ENABLED,
+  TARGET_CHAIN_ID,
+} from "@/lib/wagmi-config";
 
 const routerConfig = {
   address: AXIOM_ROUTER_ADDRESS,
   abi: AXIOM_ROUTER_ABI,
+  chainId: TARGET_CHAIN_ID,
 } as const;
 
 // ============================================================================
@@ -24,7 +31,9 @@ const routerConfig = {
 
 export function usePrivateRegister() {
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
-  const { baseFee } = useProtocolFee();
+  const { address } = useAccount();
+  const { registrationFee } = useRegistrationFee(address);
+  const { isWrongNetwork } = useNetworkStatus();
 
   const {
     writeContract,
@@ -38,7 +47,7 @@ export function usePrivateRegister() {
     isLoading: isConfirming,
     isSuccess: isConfirmed,
     error: confirmError,
-  } = useWaitForTransactionReceipt({ hash });
+  } = useWaitForTransactionReceipt({ hash, chainId: TARGET_CHAIN_ID });
 
   useEffect(() => {
     if (hash) setTxHash(hash);
@@ -75,9 +84,28 @@ export function usePrivateRegister() {
     zkProof: `0x${string}`,
     metadataURI: string,
   ) => {
-    if (!baseFee) {
+    if (!PRIVACY_FEATURE_ENABLED) {
+      toast.error("Private Registration Unavailable", {
+        description:
+          "A production prover and approved verifier are not deployed yet.",
+      });
+      return;
+    }
+    if (!IS_AXIOM_ROUTER_CONFIGURED || isWrongNetwork) {
+      toast.error("Contract Unavailable", {
+        description: "Connect to the configured Sepolia deployment.",
+      });
+      return;
+    }
+    if (!zkProof || /^0x0*$/.test(zkProof)) {
+      toast.error("Proof Required", {
+        description: "Placeholder or empty proofs are never submitted.",
+      });
+      return;
+    }
+    if (registrationFee === undefined) {
       toast.error("Fee Unavailable", {
-        description: "Could not fetch protocol fee. Please try again.",
+        description: "Could not fetch your registration fee. Please try again.",
       });
       return;
     }
@@ -86,7 +114,7 @@ export function usePrivateRegister() {
       ...routerConfig,
       functionName: "privateRegister",
       args: [contentHash, commitment, nullifierHash, zkProof, metadataURI],
-      value: baseFee,
+      value: registrationFee,
     });
   };
 
@@ -119,22 +147,23 @@ export function usePrivateRecord(recordId: `0x${string}` | undefined) {
     ...routerConfig,
     functionName: "getPrivateRecord",
     args: recordId ? [recordId] : undefined,
-    query: { enabled: !!recordId },
+    query: {
+      enabled: PRIVACY_FEATURE_ENABLED && IS_AXIOM_ROUTER_CONFIGURED && !!recordId,
+    },
   });
 
   let record: PrivateRecord | null = null;
 
   if (data) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw = data as any;
+    const raw = data as Record<string, unknown>;
     record = {
-      contentHash: raw.contentHash,
-      commitment: raw.commitment,
-      nullifierHash: raw.nullifierHash,
+      contentHash: raw.contentHash as `0x${string}`,
+      commitment: raw.commitment as `0x${string}`,
+      nullifierHash: raw.nullifierHash as `0x${string}`,
       timestamp: Number(raw.timestamp ?? 0),
       status: Number(raw.status ?? 0),
       metadataDeleted: Boolean(raw.metadataDeleted),
-      metadataURI: raw.metadataURI ?? "",
+      metadataURI: String(raw.metadataURI ?? ""),
     };
   }
 
@@ -150,7 +179,10 @@ export function useRecordsByCommitment(commitment: `0x${string}` | undefined) {
     ...routerConfig,
     functionName: "getRecordsByCommitment",
     args: commitment ? [commitment] : undefined,
-    query: { enabled: !!commitment },
+    query: {
+      enabled:
+        PRIVACY_FEATURE_ENABLED && IS_AXIOM_ROUTER_CONFIGURED && !!commitment,
+    },
   });
 
   const recordIds = (data as `0x${string}`[]) ?? [];
@@ -174,7 +206,15 @@ export function useVerifyOwnership(
       recordId && commitment && zkProof
         ? [recordId, commitment, zkProof]
         : undefined,
-    query: { enabled: !!recordId && !!commitment && !!zkProof },
+    query: {
+      enabled:
+        PRIVACY_FEATURE_ENABLED &&
+        IS_AXIOM_ROUTER_CONFIGURED &&
+        !!recordId &&
+        !!commitment &&
+        !!zkProof &&
+        !/^0x0*$/.test(zkProof),
+    },
   });
 
   return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAccount } from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
 import {
   Loader2,
   Gavel,
@@ -13,11 +13,17 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { WalletButton } from "@/components/WalletButton";
+import { useMyDisputes } from "@/hooks/useDisputes";
 import {
-  useMyDisputes,
-  DISPUTE_REASONS,
-  DISPUTE_STATUSES,
-} from "@/hooks/useDisputes";
+  disputeReasonLabel,
+  disputeStatusLabel,
+  formatTokenAmount,
+  ZERO_ADDRESS,
+  resolveContentUri,
+  type TokenMetadata,
+} from "@/lib/axiom-domain";
+import { ERC20_ABI } from "@/lib/contracts/erc20";
+import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
 
 // ============================================================================
 // STATUS BADGE STYLES
@@ -39,7 +45,43 @@ const statusStyles: Record<number, string> = {
 
 export default function DisputesPage() {
   const { isConnected, address } = useAccount();
-  const { disputes, totalDisputes, isLoading, error } = useMyDisputes(address);
+  const { disputes, totalDisputes, isLoading, error, partialFailure } =
+    useMyDisputes(address);
+  const stakeTokens = Array.from(
+    new Set(
+      disputes
+        .map((dispute) => dispute.stakeToken)
+        .filter((token) => token.toLowerCase() !== ZERO_ADDRESS),
+    ),
+  );
+  const { data: tokenData, isLoading: isLoadingTokens } = useReadContracts({
+    contracts: stakeTokens.flatMap((token) => [
+      {
+        address: token,
+        abi: ERC20_ABI,
+        chainId: TARGET_CHAIN_ID,
+        functionName: "decimals" as const,
+      },
+      {
+        address: token,
+        abi: ERC20_ABI,
+        chainId: TARGET_CHAIN_ID,
+        functionName: "symbol" as const,
+      },
+    ]),
+    query: { enabled: stakeTokens.length > 0, staleTime: Infinity },
+  });
+  const tokenMetadata = new Map<string, TokenMetadata>();
+  stakeTokens.forEach((token, index) => {
+    const decimals = tokenData?.[index * 2];
+    const symbol = tokenData?.[index * 2 + 1];
+    if (decimals?.status === "success" && symbol?.status === "success") {
+      tokenMetadata.set(token.toLowerCase(), {
+        decimals: Number(decimals.result),
+        symbol: String(symbol.result),
+      });
+    }
+  });
 
   return (
     <div className="min-h-[calc(100vh-5rem)] py-12 px-4">
@@ -53,8 +95,7 @@ export default function DisputesPage() {
             <h1 className="text-4xl font-bold text-white">My Disputes</h1>
           </div>
           <p className="text-white/60 max-w-lg mx-auto">
-            Disputes you&apos;ve filed as a challenger. Stake ETH to flag
-            content for review.
+            Stake-backed disputes you&apos;ve filed as a challenger.
           </p>
         </div>
 
@@ -104,6 +145,15 @@ export default function DisputesPage() {
               </Card>
             )}
 
+            {partialFailure && !error && (
+              <Card className="border-amber-500/30 bg-amber-950/20 p-4">
+                <p className="text-sm text-amber-200">
+                  Some dispute details could not be loaded. Refresh before
+                  acting on the displayed state.
+                </p>
+              </Card>
+            )}
+
             {/* Empty */}
             {!isLoading && !error && disputes.length === 0 && (
               <Card className="border-white/10 bg-black/40 backdrop-blur-xl p-12 rounded-3xl">
@@ -148,7 +198,7 @@ export default function DisputesPage() {
                             statusStyles[dispute.status] ?? statusStyles[0]
                           }`}
                         >
-                          {DISPUTE_STATUSES[dispute.status] ?? "Unknown"}
+                          {disputeStatusLabel(dispute.status)}
                         </span>
                       </div>
 
@@ -178,7 +228,7 @@ export default function DisputesPage() {
                           </p>
                           <p className="flex items-center gap-1 text-white/70 text-xs">
                             <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0" />
-                            {DISPUTE_REASONS[dispute.reason] ?? "Unknown"}
+                            {disputeReasonLabel(dispute.reason)}
                           </p>
                         </div>
 
@@ -188,10 +238,21 @@ export default function DisputesPage() {
                             Stake
                           </p>
                           <p className="text-white font-semibold text-xs">
-                            {dispute.stakeAmountFormatted}{" "}
-                            <span className="text-white/40 font-normal">
-                              ETH
-                            </span>
+                            {dispute.stakeToken.toLowerCase() === ZERO_ADDRESS
+                              ? formatTokenAmount(dispute.stakeAmount, {
+                                  decimals: 18,
+                                  symbol: "ETH",
+                                })
+                              : tokenMetadata.has(dispute.stakeToken.toLowerCase())
+                                ? formatTokenAmount(
+                                    dispute.stakeAmount,
+                                    tokenMetadata.get(
+                                      dispute.stakeToken.toLowerCase(),
+                                    )!,
+                                  )
+                                : isLoadingTokens
+                                  ? "Loading token…"
+                                  : `${dispute.stakeAmount.toString()} token units`}
                           </p>
                         </div>
 
@@ -212,9 +273,10 @@ export default function DisputesPage() {
                       </div>
 
                       {/* Evidence link */}
-                      {dispute.evidenceURI && (
+                      {dispute.evidenceURI &&
+                        resolveContentUri(dispute.evidenceURI) && (
                         <a
-                          href={dispute.evidenceURI}
+                          href={resolveContentUri(dispute.evidenceURI)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 text-xs text-cyan-400 hover:underline"
@@ -222,7 +284,7 @@ export default function DisputesPage() {
                           <ExternalLink className="w-3 h-3" />
                           View Evidence
                         </a>
-                      )}
+                        )}
 
                       {/* Deadline */}
                       {dispute.deadline > 0 && (

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useReadContracts, useReadContract } from "wagmi";
+import { useReadContracts } from "wagmi";
 import {
   Shield,
   FileSignature,
@@ -9,9 +9,7 @@ import {
   ArrowRight,
   Lock,
   Globe,
-  Zap,
   Database,
-  Users,
   TrendingUp,
   Sparkles,
 } from "lucide-react";
@@ -19,29 +17,29 @@ import { Button } from "@/components/ui/button";
 import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
+  IS_AXIOM_ROUTER_CONFIGURED,
+  ROUTER_CONFIGURATION_ERROR,
 } from "@/lib/contracts/axiom-router";
 import { formatEther } from "viem";
+import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
 
-const tips = [
-  "💡 Verify Before Sharing - Always verify your content hash after registration",
-  "🔐 Register Your Identity - Build trust with a verified identity badge",
-  "⚡ Gas Tip - Register during weekends for lower gas fees",
-  "📋 Use Search - Find any record by content hash or issuer address",
-  "🎯 Dispute Carefully - Only dispute content with strong evidence",
-];
+const protocolTip =
+  "💡 Registration proves that a wallet anchored a fingerprint at a given time; always evaluate authorship and metadata separately.";
 
 const contractConfig = {
   address: AXIOM_ROUTER_ADDRESS,
   abi: AXIOM_ROUTER_ABI,
+  chainId: TARGET_CHAIN_ID,
 } as const;
 
 export default function HomePage() {
-  const { data } = useReadContracts({
+  const { data, error, isLoading } = useReadContracts({
     contracts: [
       { ...contractConfig, functionName: "getTotalRecords" },
       { ...contractConfig, functionName: "getTotalFeesCollected" },
     ],
     query: {
+      enabled: IS_AXIOM_ROUTER_CONFIGURED,
       refetchInterval: 30000,
     },
   });
@@ -55,9 +53,6 @@ export default function HomePage() {
     return parseFloat(eth).toFixed(4);
   };
 
-  // Random tip that changes on each load
-  const randomTip = tips[Math.floor(Math.random() * tips.length)];
-
   return (
     <div className="min-h-[calc(100vh-5rem)]">
       {/* Tip Banner */}
@@ -65,7 +60,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-3">
           <p className="text-sm text-center text-white/70">
             <Sparkles className="w-4 h-4 inline-block mr-2 text-amber-400" />
-            {randomTip}
+            {protocolTip}
           </p>
         </div>
       </div>
@@ -80,22 +75,21 @@ export default function HomePage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm mb-8 animate-fade-in">
             <div className="w-2 h-2 rounded-full bg-axiom-green animate-pulse" />
-            <span className="text-sm text-white/70">Powered by Blockchain</span>
+            <span className="text-sm text-white/70">Sepolia test deployment</span>
           </div>
 
           {/* Title */}
           <h1 className="text-5xl md:text-7xl font-bold mb-6 animate-slide-up">
             <span className="text-white">Verify </span>
-            <span className="text-gradient">Truth</span>
+            <span className="text-gradient">Registration</span>
             <br />
             <span className="text-white/60">On-Chain</span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10">
-            Axiom Protocol enables decentralized content authenticity
-            verification. Register your digital content and prove its
-            authenticity to anyone, anywhere.
+            Axiom Protocol anchors a content fingerprint to a wallet and time,
+            then lets anyone inspect the record&apos;s current on-chain status.
           </p>
 
           {/* CTA Buttons */}
@@ -120,13 +114,23 @@ export default function HomePage() {
       {/* Live Stats Section */}
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-3 gap-4">
+          {!IS_AXIOM_ROUTER_CONFIGURED && (
+            <p className="mb-4 rounded-xl border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-200">
+              {ROUTER_CONFIGURATION_ERROR}
+            </p>
+          )}
+          {error && (
+            <p className="mb-4 rounded-xl border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-200">
+              Protocol metrics unavailable: {error.message.slice(0, 160)}
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-4">
             <div className="p-6 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl text-center">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Database className="w-5 h-5 text-axiom-cyan" />
               </div>
               <div className="text-3xl font-bold text-white mb-1">
-                {totalRecords?.toString() || "0"}
+                {isLoading ? "…" : totalRecords?.toString() || "0"}
               </div>
               <div className="text-sm text-white/50">Total Records</div>
             </div>
@@ -135,21 +139,9 @@ export default function HomePage() {
                 <TrendingUp className="w-5 h-5 text-axiom-purple" />
               </div>
               <div className="text-3xl font-bold text-white mb-1">
-                {formatETH(totalFees)} ETH
+                {isLoading ? "…" : `${formatETH(totalFees)} ETH`}
               </div>
-              <div className="text-sm text-white/50">Total Revenue</div>
-            </div>
-            <div className="p-6 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Users className="w-5 h-5 text-axiom-green" />
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">
-                {Number(totalRecords || 0) > 0
-                  ? Math.ceil(Number(totalRecords) / 3)
-                  : "0"}
-                +
-              </div>
-              <div className="text-sm text-white/50">Unique Issuers</div>
+              <div className="text-sm text-white/50">Registration Fees Collected</div>
             </div>
           </div>
         </div>
@@ -162,8 +154,8 @@ export default function HomePage() {
             How It Works
           </h2>
           <p className="text-center text-white/60 mb-12 max-w-2xl mx-auto">
-            Three simple steps to ensure your content is authenticated and
-            verifiable forever.
+            Three steps to create and independently inspect an on-chain
+            registration record.
           </p>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -190,8 +182,8 @@ export default function HomePage() {
                 2. Register On-Chain
               </h3>
               <p className="text-white/60">
-                The hash is permanently recorded on the blockchain, linked to
-                your wallet address and optional metadata.
+                The fingerprint is written to the configured contract with
+                your wallet address, timestamp, and optional metadata.
               </p>
             </div>
 
@@ -204,8 +196,8 @@ export default function HomePage() {
                 3. Verify Anywhere
               </h3>
               <p className="text-white/60">
-                Anyone can verify the content authenticity by simply dropping
-                the file and checking against the blockchain.
+                Anyone can recompute the fingerprint and inspect the matching
+                record and its current status on-chain.
               </p>
             </div>
           </div>
@@ -217,20 +209,22 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-3 gap-8 text-center">
             <div>
-              <div className="text-4xl font-bold text-gradient mb-2">100%</div>
-              <div className="text-sm text-white/50">
-                Client-Side Processing
+              <div className="text-2xl font-bold text-gradient mb-2">
+                SHA-256
               </div>
+              <div className="text-sm text-white/50">Local file hashing</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-gradient mb-2">∞</div>
-              <div className="text-sm text-white/50">Immutable Records</div>
+              <div className="text-2xl font-bold text-gradient mb-2">
+                On-chain
+              </div>
+              <div className="text-sm text-white/50">Current record state</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-gradient mb-2">
-                <Zap className="w-8 h-8 mx-auto text-axiom-cyan" />
+              <div className="text-2xl font-bold text-gradient mb-2">
+                Wallet
               </div>
-              <div className="text-sm text-white/50">Instant Verification</div>
+              <div className="text-sm text-white/50">Signed state changes</div>
             </div>
           </div>
         </div>
@@ -255,7 +249,7 @@ export default function HomePage() {
             >
               <span className="text-2xl">📋</span>
               <p className="text-sm text-white/70 mt-2 group-hover:text-white transition-colors">
-                What&apos;s New
+                Usage Guide
               </p>
             </Link>
             <Link

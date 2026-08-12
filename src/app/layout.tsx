@@ -1,21 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Navigation } from "@/components/Navigation";
 import { FloatingOrbs } from "@/components/FloatingOrbs";
 import { LeftSidebar } from "@/components/LeftSidebar";
 import { RightSidebar } from "@/components/RightSidebar";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains",
-});
 
 export const metadata: Metadata = {
   title: "Axiom Protocol | Content Authenticity Verification",
@@ -38,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" style={{ backgroundColor: "#000000" }}>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} font-sans min-h-screen`}
+        className="font-sans min-h-screen"
         style={{
           backgroundColor: "#000000",
           backgroundImage:

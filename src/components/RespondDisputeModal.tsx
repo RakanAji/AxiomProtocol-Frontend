@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,26 +9,36 @@ import { useRespondToDispute } from "@/hooks/useDisputes";
 interface RespondDisputeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   disputeId: `0x${string}`;
 }
 
 export function RespondDisputeModal({
   isOpen,
   onClose,
+  onSuccess,
   disputeId,
 }: RespondDisputeModalProps) {
   const [responseURI, setResponseURI] = useState("");
-  const { respondToDispute, isPending, isConfirming, isConfirmed } =
+  const { respondToDispute, isPending, isConfirming, isConfirmed, reset } =
     useRespondToDispute();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setResponseURI("");
+    reset();
+  }, [isOpen, reset]);
+
+  useEffect(() => {
+    if (!isConfirmed) return;
+    onSuccess?.();
+    onClose();
+  }, [isConfirmed, onClose, onSuccess]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     respondToDispute(disputeId, responseURI);
   };
-
-  if (isConfirmed) {
-    onClose();
-  }
 
   if (!isOpen) return null;
 
@@ -37,7 +47,9 @@ export function RespondDisputeModal({
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={() => {
+          if (!isPending && !isConfirming) onClose();
+        }}
       />
 
       {/* Modal */}

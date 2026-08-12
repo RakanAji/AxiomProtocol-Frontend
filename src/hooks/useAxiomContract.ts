@@ -11,17 +11,14 @@ import {
 import {
   AXIOM_ROUTER_ABI,
   AXIOM_ROUTER_ADDRESS,
+  IS_AXIOM_ROUTER_CONFIGURED,
+  ROUTER_CONFIGURATION_ERROR,
 } from "@/lib/contracts/axiom-router";
-import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
+import {
+  TARGET_CHAIN_ID,
+  isSupportedChain,
+} from "@/lib/wagmi-config";
 import { toast } from "sonner";
-
-// Types for verification result
-export interface VerificationResult {
-  isValid: boolean;
-  issuer: `0x${string}`;
-  timestamp: number;
-  uri: string;
-}
 
 // Identity info from resolveIdentity
 export interface IdentityInfo {
@@ -36,7 +33,7 @@ export function useNetworkStatus() {
   const chainId = useChainId();
   const { isConnected } = useAccount();
 
-  const isCorrectNetwork = chainId === TARGET_CHAIN_ID;
+  const isCorrectNetwork = isSupportedChain(chainId);
   const isWrongNetwork = isConnected && !isCorrectNetwork;
 
   return {
@@ -44,82 +41,47 @@ export function useNetworkStatus() {
     isCorrectNetwork,
     isWrongNetwork,
     targetChainId: TARGET_CHAIN_ID,
+    isContractConfigured: IS_AXIOM_ROUTER_CONFIGURED,
+    configurationError: ROUTER_CONFIGURATION_ERROR,
   };
 }
 
-// Hook to get protocol base fee
-export function useProtocolFee() {
+// Registration fees may differ per account (for example enterprise rates).
+export function useRegistrationFee(user: `0x${string}` | undefined) {
   const { data, isLoading, error, refetch } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
     abi: AXIOM_ROUTER_ABI,
-    functionName: "getBaseFee",
-  });
-
-  return {
-    baseFee: data as bigint | undefined,
-    isLoading,
-    error,
-    refetch,
-  };
-}
-
-// Hook to verify content
-export function useVerifyContent(
-  contentHash: `0x${string}` | undefined,
-  claimedIssuer: `0x${string}` | undefined,
-) {
-  const { data, isLoading, error, refetch } = useReadContract({
-    address: AXIOM_ROUTER_ADDRESS,
-    abi: AXIOM_ROUTER_ABI,
-    functionName: "verify",
-    args:
-      contentHash && claimedIssuer ? [contentHash, claimedIssuer] : undefined,
+    chainId: TARGET_CHAIN_ID,
+    functionName: "getFee",
+    args: user ? [user] : undefined,
     query: {
-      enabled: !!contentHash && !!claimedIssuer,
+      enabled: IS_AXIOM_ROUTER_CONFIGURED && !!user,
+      staleTime: 15_000,
     },
   });
 
-  // Parse result - verify() returns [isValid: boolean, record: AxiomRecord]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawRecord = data?.[1] as any;
-  const result: VerificationResult | undefined = data
-    ? {
-        isValid: data[0],
-        issuer: rawRecord?.issuer as `0x${string}`,
-        timestamp: rawRecord?.timestamp ? Number(rawRecord.timestamp) : 0,
-        uri: rawRecord?.metadataURI as string,
-      }
-    : undefined;
-
   return {
-    result,
+    registrationFee: data as bigint | undefined,
     isLoading,
     error,
     refetch,
   };
-}
-
-// Hook to verify content by hash only (checks if hash exists)
-export function useVerifyContentByHash(contentHash: `0x${string}` | undefined) {
-  const { address } = useAccount();
-
-  // If no issuer specified, use zero address or connected address
-  const issuerToCheck = address || "0x0000000000000000000000000000000000000000";
-
-  return useVerifyContent(contentHash, issuerToCheck as `0x${string}`);
 }
 
 // Hook to register content
 export function useRegisterContent() {
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
-  const { baseFee } = useProtocolFee();
+  const { address } = useAccount();
+  const { registrationFee, isLoading: isLoadingFee, error: feeError } =
+    useRegistrationFee(address);
+  const { isWrongNetwork } = useNetworkStatus();
 
   const {
     writeContract,
     data: hash,
     isPending: isWritePending,
     error: writeError,
-    reset,
+    reset: resetWrite,
   } = useWriteContract();
 
   const {
@@ -128,6 +90,7 @@ export function useRegisterContent() {
     error: confirmError,
   } = useWaitForTransactionReceipt({
     hash,
+    chainId: TARGET_CHAIN_ID,
   });
 
   useEffect(() => {
@@ -169,9 +132,27 @@ export function useRegisterContent() {
   }, [isConfirmed, txHash]);
 
   const register = async (contentHash: `0x${string}`, metadataURI: string) => {
-    if (!baseFee) {
+    if (!IS_AXIOM_ROUTER_CONFIGURED) {
+      toast.error("Contract Unavailable", {
+        description: ROUTER_CONFIGURATION_ERROR || "Router is not configured.",
+      });
+      return;
+    }
+    if (!address) {
+      toast.error("Wallet Required", {
+        description: "Connect your wallet before registering content.",
+      });
+      return;
+    }
+    if (isWrongNetwork) {
+      toast.error("Wrong Network", {
+        description: "Switch to Sepolia before registering content.",
+      });
+      return;
+    }
+    if (registrationFee === undefined) {
       toast.error("Fee Unavailable", {
-        description: "Could not fetch protocol fee. Please try again.",
+        description: "Could not fetch your registration fee. Please try again.",
       });
       return;
     }
@@ -180,13 +161,19 @@ export function useRegisterContent() {
       writeContract({
         address: AXIOM_ROUTER_ADDRESS,
         abi: AXIOM_ROUTER_ABI,
+        chainId: TARGET_CHAIN_ID,
         functionName: "register",
         args: [contentHash, metadataURI],
-        value: baseFee,
+        value: registrationFee,
       });
     } catch (error) {
       console.error("Register error:", error);
     }
+  };
+
+  const reset = () => {
+    resetWrite();
+    setTxHash(undefined);
   };
 
   return {
@@ -195,24 +182,35 @@ export function useRegisterContent() {
     isWritePending,
     isConfirming,
     isConfirmed,
-    error: writeError || confirmError,
+    registrationFee,
+    isLoadingFee,
+    error: writeError || confirmError || feeError,
     reset,
   };
 }
 
 // Hook to revoke content
 export function useRevokeContent() {
+  const { address } = useAccount();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
 
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    error: receiptError,
+  } =
     useWaitForTransactionReceipt({
       hash,
+      chainId: TARGET_CHAIN_ID,
     });
 
   const revoke = async (recordId: `0x${string}`, reason: string) => {
+    if (!ensureWriteReady(address, chainId)) return;
     writeContract({
       address: AXIOM_ROUTER_ADDRESS,
       abi: AXIOM_ROUTER_ABI,
+      chainId: TARGET_CHAIN_ID,
       functionName: "revoke",
       args: [recordId, reason],
     });
@@ -224,58 +222,33 @@ export function useRevokeContent() {
     isPending,
     isConfirming,
     isConfirmed,
-    error,
-  };
-}
-
-// Hook to dispute content
-export function useDisputeContent() {
-  const {
-    writeContract,
-    data: hash,
-    isPending,
-    error,
-    reset,
-  } = useWriteContract();
-
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({
-      hash,
-    });
-
-  const dispute = async (recordId: `0x${string}`, reason: string) => {
-    writeContract({
-      address: AXIOM_ROUTER_ADDRESS,
-      abi: AXIOM_ROUTER_ABI,
-      functionName: "disputeContent",
-      args: [recordId, reason],
-    });
-  };
-
-  return {
-    dispute,
-    txHash: hash,
-    isPending,
-    isConfirming,
-    isConfirmed,
-    error,
-    reset,
+    error: error || receiptError,
   };
 }
 
 // Hook to register identity
 export function useRegisterIdentity() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { address } = useAccount();
+  const chainId = useChainId();
+  const { writeContract, data: hash, isPending, error, reset } =
+    useWriteContract();
 
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    error: receiptError,
+  } =
     useWaitForTransactionReceipt({
       hash,
+      chainId: TARGET_CHAIN_ID,
     });
 
   const registerIdentity = async (name: string, proofURI: string) => {
+    if (!ensureWriteReady(address, chainId)) return;
     writeContract({
       address: AXIOM_ROUTER_ADDRESS,
       abi: AXIOM_ROUTER_ABI,
+      chainId: TARGET_CHAIN_ID,
       functionName: "registerIdentity",
       args: [name, proofURI],
     });
@@ -287,12 +260,15 @@ export function useRegisterIdentity() {
     isPending,
     isConfirming,
     isConfirmed,
-    error,
+    error: error || receiptError,
+    reset,
   };
 }
 
 // Hook to update identity
 export function useUpdateIdentity() {
+  const { address } = useAccount();
+  const chainId = useChainId();
   const {
     writeContract,
     data: hash,
@@ -301,15 +277,22 @@ export function useUpdateIdentity() {
     reset,
   } = useWriteContract();
 
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    error: receiptError,
+  } =
     useWaitForTransactionReceipt({
       hash,
+      chainId: TARGET_CHAIN_ID,
     });
 
   const updateIdentity = async (name: string, proofURI: string) => {
+    if (!ensureWriteReady(address, chainId)) return;
     writeContract({
       address: AXIOM_ROUTER_ADDRESS,
       abi: AXIOM_ROUTER_ABI,
+      chainId: TARGET_CHAIN_ID,
       functionName: "updateIdentity",
       args: [name, proofURI],
     });
@@ -321,27 +304,26 @@ export function useUpdateIdentity() {
     isPending,
     isConfirming,
     isConfirmed,
-    error,
+    error: error || receiptError,
     reset,
   };
 }
 
-// Hook to read identity by address
-// Hook to read identity by address
 export function useIdentity({ address }: { address?: `0x${string}` }) {
   const { data, isLoading, error, refetch } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
     abi: AXIOM_ROUTER_ABI,
+    chainId: TARGET_CHAIN_ID,
     functionName: "resolveIdentity",
     args: address ? [address] : undefined,
     query: {
-      enabled: !!address,
+      enabled: IS_AXIOM_ROUTER_CONFIGURED && !!address,
       retry: 1,
     },
   });
 
   // Safe parsing for Tuple returns in Wagmi/Viem
-  const parseIdentity = (rawData: any): IdentityInfo | undefined => {
+  const parseIdentity = (rawData: unknown): IdentityInfo | undefined => {
     if (!rawData) return undefined;
 
     // Jika kembaliannya berbentuk Array (contoh: ["Rakan Aji", "ipfs://...", false, 17000000])
@@ -355,23 +337,16 @@ export function useIdentity({ address }: { address?: `0x${string}` }) {
     }
 
     // Jika kembaliannya berbentuk Object (contoh: { name: "Rakan Aji", ... })
+    const value = rawData as Record<string, unknown>;
     return {
-      name: rawData.name || "",
-      proofURI: rawData.proofURI || "",
-      isVerified: rawData.isVerified || false,
-      registeredAt: rawData.registeredAt ? Number(rawData.registeredAt) : 0,
+      name: String(value.name || ""),
+      proofURI: String(value.proofURI || ""),
+      isVerified: Boolean(value.isVerified),
+      registeredAt: value.registeredAt ? Number(value.registeredAt) : 0,
     };
   };
 
   const identity = parseIdentity(data);
-
-  // Debug: remove after investigation
-  if (address) {
-    console.log("[useIdentity] address:", address);
-    console.log("[useIdentity] raw data:", data);
-    console.log("[useIdentity] parsed identity:", identity);
-    console.log("[useIdentity] error:", error);
-  }
 
   return {
     identity,
@@ -406,4 +381,25 @@ function parseContractError(error: Error): string {
 
   // Return first 100 chars of error message
   return error.message.slice(0, 100);
+}
+
+function ensureWriteReady(
+  address: `0x${string}` | undefined,
+  chainId: number,
+): boolean {
+  if (!IS_AXIOM_ROUTER_CONFIGURED) {
+    toast.error("Contract Unavailable", {
+      description: ROUTER_CONFIGURATION_ERROR || "Router is not configured.",
+    });
+    return false;
+  }
+  if (!address) {
+    toast.error("Connect a wallet first");
+    return false;
+  }
+  if (chainId !== TARGET_CHAIN_ID) {
+    toast.error("Switch to Sepolia before submitting");
+    return false;
+  }
+  return true;
 }

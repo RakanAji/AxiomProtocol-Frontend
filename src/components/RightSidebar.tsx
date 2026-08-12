@@ -1,55 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useWatchContractEvent, usePublicClient } from "wagmi";
-import { Radio, ExternalLink, Fuel } from "lucide-react";
+import { usePublicClient } from "wagmi";
+import { Fuel, Network } from "lucide-react";
 import { formatGwei } from "viem";
 import {
-  AXIOM_ROUTER_ADDRESS,
-  AXIOM_ROUTER_ABI,
+  IS_AXIOM_ROUTER_CONFIGURED,
+  ROUTER_CONFIGURATION_ERROR,
 } from "@/lib/contracts/axiom-router";
-import { cn } from "@/lib/utils";
-
-interface ActivityItem {
-  id: string;
-  issuer: string;
-  contentHash: string;
-  timestamp: Date;
-}
+import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
 
 export function RightSidebar() {
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [gasPrice, setGasPrice] = useState<bigint | null>(null);
-  const publicClient = usePublicClient();
-
-  // Watch for ContentRegistered events
-  useWatchContractEvent({
-    address: AXIOM_ROUTER_ADDRESS,
-    abi: AXIOM_ROUTER_ABI,
-    eventName: "ContentRegistered",
-    onLogs(logs) {
-      const newActivities = logs.map((log) => {
-        const args = log.args as {
-          recordId?: `0x${string}`;
-          issuer?: `0x${string}`;
-          contentHash?: `0x${string}`;
-        };
-        return {
-          id: args.recordId || `${Date.now()}`,
-          issuer: args.issuer || "0x...",
-          contentHash: args.contentHash || "0x...",
-          timestamp: new Date(),
-        };
-      });
-
-      setActivities((prev) => [...newActivities, ...prev].slice(0, 10));
-    },
-  });
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
 
   // Fetch gas price
   useEffect(() => {
     const fetchGasPrice = async () => {
-      if (publicClient) {
+      if (publicClient && IS_AXIOM_ROUTER_CONFIGURED) {
         try {
           const price = await publicClient.getGasPrice();
           setGasPrice(price);
@@ -64,44 +32,9 @@ export function RightSidebar() {
     return () => clearInterval(interval);
   }, [publicClient]);
 
-  // Add mock initial activity for demo
-  useEffect(() => {
-    if (activities.length === 0) {
-      setActivities([
-        {
-          id: "demo-1",
-          issuer: "0x0000...0000",
-          contentHash: "Waiting for activity...",
-          timestamp: new Date(),
-        },
-      ]);
-    }
-  }, [activities.length]);
-
-  const truncateAddress = (addr: string) => {
-    if (addr.length <= 13) return addr;
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
-
-  const timeAgo = (date: Date) => {
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-    if (seconds < 60) return "just now";
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
-  };
-
   const formatGas = (wei: bigint) => {
     const gwei = parseFloat(formatGwei(wei));
     return gwei.toFixed(2);
-  };
-
-  // Calculate gas levels
-  const getGasLevel = (price: bigint) => {
-    const gwei = parseFloat(formatGwei(price));
-    if (gwei < 20) return { label: "Low", color: "text-axiom-green" };
-    if (gwei < 50) return { label: "Medium", color: "text-amber-400" };
-    return { label: "High", color: "text-red-400" };
   };
 
   return (
@@ -124,37 +57,9 @@ export function RightSidebar() {
                   </span>
                   <span className="text-xs text-white/40">Gwei</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className={cn(
-                      "w-2 h-2 rounded-full",
-                      getGasLevel(gasPrice).color.replace("text-", "bg-"),
-                    )}
-                  />
-                  <span className={cn("text-xs", getGasLevel(gasPrice).color)}>
-                    {getGasLevel(gasPrice).label}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/5">
-                  <div className="text-center">
-                    <p className="text-xs text-axiom-green font-semibold">
-                      {formatGas((gasPrice * BigInt(80)) / BigInt(100))}
-                    </p>
-                    <p className="text-xs text-white/30">Slow</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-amber-400 font-semibold">
-                      {formatGas(gasPrice)}
-                    </p>
-                    <p className="text-xs text-white/30">Avg</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-red-400 font-semibold">
-                      {formatGas((gasPrice * BigInt(120)) / BigInt(100))}
-                    </p>
-                    <p className="text-xs text-white/30">Fast</p>
-                  </div>
-                </div>
+                <p className="text-xs text-white/35">
+                  Latest RPC gas price; not a transaction quote.
+                </p>
               </>
             ) : (
               <p className="text-xs text-white/40">Loading...</p>
@@ -162,43 +67,29 @@ export function RightSidebar() {
           </div>
         </div>
 
-        {/* Live Activity */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div>
           <div className="flex items-center gap-2 px-2 mb-3">
-            <div className="relative">
-              <Radio className="w-4 h-4 text-axiom-green" />
-              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-axiom-green rounded-full animate-ping" />
-            </div>
+            <Network className="w-4 h-4 text-axiom-green" />
             <span className="text-xs font-medium text-white/50 uppercase tracking-wider">
-              Live Activity
+              Deployment
             </span>
           </div>
-
-          <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin">
-            {activities.map((activity) => (
-              <div
-                key={activity.id}
-                className="p-3 rounded-xl border border-white/5 bg-black/30 backdrop-blur-sm hover:border-white/10 transition-colors group"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-axiom-cyan font-mono">
-                    {truncateAddress(activity.issuer)}
-                  </span>
-                  <span className="text-xs text-white/30">
-                    {timeAgo(activity.timestamp)}
-                  </span>
-                </div>
-                <p className="text-xs text-white/50 truncate">
-                  Registered content
-                </p>
-                <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ExternalLink className="w-3 h-3 text-white/30" />
-                  <span className="text-xs text-white/30">
-                    View on explorer
-                  </span>
-                </div>
-              </div>
-            ))}
+          <div className="rounded-xl border border-white/5 bg-black/30 p-4 text-xs">
+            <p
+              className={
+                IS_AXIOM_ROUTER_CONFIGURED
+                  ? "text-axiom-green"
+                  : "text-amber-300"
+              }
+            >
+              {IS_AXIOM_ROUTER_CONFIGURED
+                ? "Router configured"
+                : "Router unavailable"}
+            </p>
+            <p className="mt-2 text-white/35">
+              {ROUTER_CONFIGURATION_ERROR ||
+                `Reads and writes target chain ID ${TARGET_CHAIN_ID}.`}
+            </p>
           </div>
         </div>
       </div>

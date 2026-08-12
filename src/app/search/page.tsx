@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useReadContract } from "wagmi";
 import {
@@ -24,12 +24,24 @@ import { Input } from "@/components/ui/input";
 import {
   AXIOM_ROUTER_ADDRESS,
   AXIOM_ROUTER_ABI,
+  IS_AXIOM_ROUTER_CONFIGURED,
+  ROUTER_CONFIGURATION_ERROR,
 } from "@/lib/contracts/axiom-router";
 import { useIdentity } from "@/hooks/useAxiomContract";
+import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
+import { resolveContentUri, ZERO_ADDRESS } from "@/lib/axiom-domain";
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search).get("q")?.trim();
+    if (query) {
+      setSearchQuery(query);
+      setSubmittedQuery(query);
+    }
+  }, []);
 
   // Resolve name to address
   const {
@@ -39,13 +51,14 @@ export default function SearchPage() {
   } = useReadContract({
     address: AXIOM_ROUTER_ADDRESS,
     abi: AXIOM_ROUTER_ABI,
+    chainId: TARGET_CHAIN_ID,
     functionName: "resolveByName",
     args: submittedQuery ? [submittedQuery] : undefined,
-    query: { enabled: !!submittedQuery },
+    query: { enabled: IS_AXIOM_ROUTER_CONFIGURED && !!submittedQuery },
   });
 
   // Fetch identity for resolved address
-  const { identity, isLoadingIdentity } = useIdentity({
+  const { identity, isLoadingIdentity, identityError } = useIdentity({
     address: resolvedAddress as `0x${string}` | undefined,
   });
 
@@ -58,7 +71,7 @@ export default function SearchPage() {
 
   // Check if address is zero (not found)
   const isZeroAddress =
-    resolvedAddress === "0x0000000000000000000000000000000000000000";
+    resolvedAddress === ZERO_ADDRESS;
   const hasResult =
     submittedQuery && !isResolvingName && resolvedAddress && !isZeroAddress;
   const notFound = submittedQuery && !isResolvingName && isZeroAddress;
@@ -78,6 +91,11 @@ export default function SearchPage() {
         </div>
 
         {/* Search Box */}
+        {!IS_AXIOM_ROUTER_CONFIGURED && (
+          <Card className="rounded-2xl border-red-500/30 bg-red-950/30 p-4 text-sm text-red-200">
+            {ROUTER_CONFIGURATION_ERROR}
+          </Card>
+        )}
         <Card className="border-white/10 bg-black/40 backdrop-blur-xl rounded-3xl overflow-hidden">
           <CardHeader className="border-b border-white/10 bg-gradient-to-r from-cyan-500/10 to-purple-500/10">
             <CardTitle className="flex items-center gap-2">
@@ -99,7 +117,11 @@ export default function SearchPage() {
               <Button
                 type="submit"
                 size="lg"
-                disabled={!searchQuery.trim() || isResolvingName}
+                disabled={
+                  !IS_AXIOM_ROUTER_CONFIGURED ||
+                  !searchQuery.trim() ||
+                  isResolvingName
+                }
                 className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:opacity-90 px-8"
               >
                 {isResolvingName ? (
@@ -119,8 +141,14 @@ export default function SearchPage() {
           </div>
         )}
 
+        {(nameError || identityError) && submittedQuery && (
+          <Card className="rounded-2xl border-red-500/30 bg-red-950/30 p-5 text-sm text-red-200">
+            Identity query failed: {(nameError || identityError)?.message.slice(0, 180)}
+          </Card>
+        )}
+
         {/* Not Found */}
-        {notFound && (
+        {notFound && !nameError && (
           <Card className="border-amber-500/30 bg-amber-950/30 backdrop-blur-xl p-6 rounded-2xl">
             <div className="flex items-center gap-4">
               <AlertCircle className="w-10 h-10 text-amber-400" />
@@ -168,9 +196,9 @@ export default function SearchPage() {
                     {(resolvedAddress as string)?.slice(0, 10)}...
                     {(resolvedAddress as string)?.slice(-8)}
                   </p>
-                  {identity.proofURI && (
+                  {identity.proofURI && resolveContentUri(identity.proofURI) && (
                     <a
-                      href={identity.proofURI}
+                      href={resolveContentUri(identity.proofURI)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-cyan-400 hover:underline flex items-center gap-1 mt-1"

@@ -1,29 +1,41 @@
 "use client";
 
-/**
- * License Hooks for Axiom Protocol
- *
- * Custom hooks for creating, purchasing, and reading license data
- * from the AxiomLicenseFacet via the Diamond Proxy router.
- */
-
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  formatUnits,
+  isAddress,
+  parseEther,
+  parseUnits,
+} from "viem";
+import {
+  useAccount,
+  useChainId,
+  usePublicClient,
   useReadContract,
-  useWriteContract,
   useWaitForTransactionReceipt,
+  useWriteContract,
 } from "wagmi";
-import { parseEther, formatEther } from "viem";
 import { toast } from "sonner";
 
 import {
+  ZERO_ADDRESS,
+  isNativeToken,
+  type TokenMetadata,
+} from "@/lib/axiom-domain";
+import {
   AXIOM_ROUTER_ABI,
   AXIOM_ROUTER_ADDRESS,
+  IS_AXIOM_ROUTER_CONFIGURED,
+  ROUTER_CONFIGURATION_ERROR,
 } from "@/lib/contracts/axiom-router";
+import { ERC20_ABI } from "@/lib/contracts/erc20";
+import { TARGET_CHAIN_ID } from "@/lib/wagmi-config";
 
-// ============================================================================
-// TYPES
-// ============================================================================
+const routerConfig = {
+  address: AXIOM_ROUTER_ADDRESS,
+  abi: AXIOM_ROUTER_ABI,
+  chainId: TARGET_CHAIN_ID,
+} as const;
 
 export interface LicenseInfo {
   recordId: `0x${string}`;
@@ -39,37 +51,116 @@ export interface LicenseInfo {
   validFrom: number;
   validUntil: number;
   price: bigint;
-  priceFormatted: string;
   customTermsURI: string;
   territoryRestrictions: string;
 }
 
-// ============================================================================
-// WRITE HOOKS
-// ============================================================================
+export interface CreateLicenseParams {
+  recordId: `0x${string}`;
+  licenseType: number;
+  price: string;
+  paymentToken: `0x${string}`;
+  paymentTokenDecimals: number;
+  royaltyBps: number;
+  validUntil: number;
+  exclusive: boolean;
+  sublicensable: boolean;
+  customTermsURI: string;
+}
 
-/**
- * Hook for creating a license on a registered content record.
- *
- * Wraps useWriteContract calling createLicense with 9 args.
- * Includes transaction confirmation tracking and toast notifications.
- */
+export interface PurchaseLicenseParams {
+  licenseId: bigint;
+  price: bigint;
+  paymentToken: `0x${string}`;
+  duration?: number;
+}
+
+export type PurchasePhase =
+  | "idle"
+  | "checking"
+  | "approving"
+  | "purchasing"
+  | "confirming"
+  | "success"
+  | "error";
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+export function parseLicense(raw: unknown): LicenseInfo | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  return {
+    recordId: value.recordId as `0x${string}`,
+    licensor: value.licensor as `0x${string}`,
+    licensee: value.licensee as `0x${string}`,
+    paymentToken: value.paymentToken as `0x${string}`,
+    licenseType: Number(value.licenseType ?? 0),
+    royaltyBps: Number(value.royaltyBps ?? 0),
+    exclusive: Boolean(value.exclusive),
+    sublicensable: Boolean(value.sublicensable),
+    transferable: Boolean(value.transferable),
+    active: Boolean(value.active),
+    validFrom: Number(value.validFrom ?? 0),
+    validUntil: Number(value.validUntil ?? 0),
+    price: (value.price as bigint | undefined) ?? BigInt(0),
+    customTermsURI: String(value.customTermsURI ?? ""),
+    territoryRestrictions: String(value.territoryRestrictions ?? ""),
+  };
+}
+
+export function useTokenMetadata(token: `0x${string}` | undefined) {
+  const enabled =
+    IS_AXIOM_ROUTER_CONFIGURED && !!token && !isNativeToken(token);
+  const decimalsQuery = useReadContract({
+    address: token || ZERO_ADDRESS,
+    abi: ERC20_ABI,
+    chainId: TARGET_CHAIN_ID,
+    functionName: "decimals",
+    query: { enabled, staleTime: Infinity },
+  });
+  const symbolQuery = useReadContract({
+    address: token || ZERO_ADDRESS,
+    abi: ERC20_ABI,
+    chainId: TARGET_CHAIN_ID,
+    functionName: "symbol",
+    query: { enabled, staleTime: Infinity },
+  });
+
+  const metadata: TokenMetadata | undefined = !token
+    ? undefined
+    : isNativeToken(token)
+      ? { decimals: 18, symbol: "ETH" }
+      : decimalsQuery.data !== undefined && symbolQuery.data
+        ? {
+            decimals: Number(decimalsQuery.data),
+            symbol: String(symbolQuery.data),
+          }
+        : undefined;
+
+  return {
+    metadata,
+    isLoading: decimalsQuery.isLoading || symbolQuery.isLoading,
+    error: decimalsQuery.error || symbolQuery.error,
+  };
+}
+
 export function useCreateLicense() {
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
-
+  const chainId = useChainId();
+  const { address } = useAccount();
   const {
     writeContract,
     data: hash,
     isPending,
     error: writeError,
-    reset,
+    reset: resetWrite,
   } = useWriteContract();
-
-  const {
-    isLoading: isConfirming,
-    isSuccess: isConfirmed,
-    error: confirmError,
-  } = useWaitForTransactionReceipt({ hash });
+  const receipt = useWaitForTransactionReceipt({
+    hash,
+    chainId: TARGET_CHAIN_ID,
+  });
 
   useEffect(() => {
     if (hash) setTxHash(hash);
@@ -77,240 +168,281 @@ export function useCreateLicense() {
 
   useEffect(() => {
     if (writeError) {
-      toast.error("License Creation Failed", {
+      toast.error("License creation failed", {
         description: parseContractError(writeError),
       });
     }
   }, [writeError]);
 
   useEffect(() => {
-    if (confirmError) {
-      toast.error("Confirmation Failed", {
-        description: confirmError.message.slice(0, 100),
+    if (receipt.error) {
+      toast.error("License confirmation failed", {
+        description: receipt.error.message.slice(0, 140),
       });
     }
-  }, [confirmError]);
+  }, [receipt.error]);
 
   useEffect(() => {
-    if (isConfirmed && txHash) {
-      toast.success("License Created!", {
-        description: `Transaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`,
+    if (receipt.isSuccess && txHash) {
+      toast.success("License template created", {
+        description: `${txHash.slice(0, 10)}…${txHash.slice(-8)}`,
       });
     }
-  }, [isConfirmed, txHash]);
+  }, [receipt.isSuccess, txHash]);
 
-  const createLicense = (params: {
-    recordId: `0x${string}`;
-    licenseType: number;
-    priceEth: string;
-    royaltyPercent: number;
-    exclusive: boolean;
-  }) => {
-    const priceWei = parseEther(params.priceEth || "0");
-    const royaltyBps = params.royaltyPercent * 100; // 5% = 500 bps
+  const createLicense = useCallback(
+    (params: CreateLicenseParams) => {
+      if (!IS_AXIOM_ROUTER_CONFIGURED) {
+        toast.error("Contract unavailable", {
+          description: ROUTER_CONFIGURATION_ERROR || undefined,
+        });
+        return;
+      }
+      if (!address || chainId !== TARGET_CHAIN_ID) {
+        toast.error("Connect a wallet on Sepolia first");
+        return;
+      }
+      if (!isAddress(params.paymentToken)) {
+        toast.error("Invalid payment token address");
+        return;
+      }
+      if (params.royaltyBps < 0 || params.royaltyBps > 10_000) {
+        toast.error("Royalty must be between 0% and 100%");
+        return;
+      }
+      if (params.validUntil !== 0 && params.validUntil <= Date.now() / 1000) {
+        toast.error("License expiry must be in the future");
+        return;
+      }
+      if (params.licenseType === 11 && !params.customTermsURI.trim()) {
+        toast.error("Custom licenses require a terms URI");
+        return;
+      }
 
-    writeContract({
-      address: AXIOM_ROUTER_ADDRESS,
-      abi: AXIOM_ROUTER_ABI,
-      functionName: "createLicense",
-      args: [
-        params.recordId,
-        params.licenseType,
-        priceWei,
-        "0x0000000000000000000000000000000000000000" as `0x${string}`, // paymentToken: Native ETH
-        royaltyBps,
-        0, // validUntil: Forever
-        params.exclusive,
-        false, // sublicensable: false
-        "", // customTermsURI: empty
-      ],
-    });
-  };
+      let price: bigint;
+      try {
+        price = isNativeToken(params.paymentToken)
+          ? parseEther(params.price || "0")
+          : parseUnits(params.price || "0", params.paymentTokenDecimals);
+      } catch {
+        toast.error("Enter a valid license price");
+        return;
+      }
+
+      writeContract({
+        ...routerConfig,
+        functionName: "createLicense",
+        args: [
+          params.recordId,
+          params.licenseType,
+          price,
+          params.paymentToken,
+          params.royaltyBps,
+          params.validUntil,
+          params.exclusive,
+          params.sublicensable,
+          params.customTermsURI.trim(),
+        ],
+      });
+    },
+    [address, chainId, writeContract],
+  );
+
+  const reset = useCallback(() => {
+    resetWrite();
+    setTxHash(undefined);
+  }, [resetWrite]);
 
   return {
     createLicense,
     txHash,
     isPending,
-    isConfirming,
-    isConfirmed,
-    error: writeError || confirmError,
+    isConfirming: receipt.isLoading,
+    isConfirmed: receipt.isSuccess,
+    error: writeError || receipt.error,
     reset,
   };
 }
 
 /**
- * Hook for purchasing a license (payable).
- *
- * Sends ETH value equal to the license price.
- * Duration is hardcoded to 0 (lifetime) for MVP.
+ * Purchases either an ETH or ERC-20 license. ERC-20 purchases first verify the
+ * buyer balance/allowance and wait for an approval receipt when needed.
  */
 export function usePurchaseLicense() {
+  const { address } = useAccount();
+  const chainId = useChainId();
+  const publicClient = usePublicClient({ chainId: TARGET_CHAIN_ID });
+  const { writeContractAsync, reset: resetWrite } = useWriteContract();
+  const [phase, setPhase] = useState<PurchasePhase>("idle");
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [approvalTxHash, setApprovalTxHash] =
+    useState<`0x${string}` | undefined>();
+  const [error, setError] = useState<Error | null>(null);
 
-  const {
-    writeContract,
-    data: hash,
-    isPending,
-    error: writeError,
-    reset,
-  } = useWriteContract();
+  const purchaseLicense = useCallback(
+    async (params: PurchaseLicenseParams) => {
+      setError(null);
+      if (!IS_AXIOM_ROUTER_CONFIGURED) {
+        const configError = new Error(
+          ROUTER_CONFIGURATION_ERROR || "Router is not configured",
+        );
+        setError(configError);
+        setPhase("error");
+        toast.error("Contract unavailable", { description: configError.message });
+        return;
+      }
+      if (!address || chainId !== TARGET_CHAIN_ID || !publicClient) {
+        const walletError = new Error("Connect a wallet on Sepolia first");
+        setError(walletError);
+        setPhase("error");
+        toast.error(walletError.message);
+        return;
+      }
 
-  const {
-    isLoading: isConfirming,
-    isSuccess: isConfirmed,
-    error: confirmError,
-  } = useWaitForTransactionReceipt({ hash });
+      try {
+        if (!isNativeToken(params.paymentToken) && params.price > BigInt(0)) {
+          setPhase("checking");
+          const [allowance, balance] = await Promise.all([
+            publicClient.readContract({
+              address: params.paymentToken,
+              abi: ERC20_ABI,
+              functionName: "allowance",
+              args: [address, AXIOM_ROUTER_ADDRESS],
+            }),
+            publicClient.readContract({
+              address: params.paymentToken,
+              abi: ERC20_ABI,
+              functionName: "balanceOf",
+              args: [address],
+            }),
+          ]);
+          if (balance < params.price) {
+            throw new Error("Insufficient token balance for this license");
+          }
+          if (allowance < params.price) {
+            setPhase("approving");
+            const approvalHash = await writeContractAsync({
+              address: params.paymentToken,
+              abi: ERC20_ABI,
+              chainId: TARGET_CHAIN_ID,
+              functionName: "approve",
+              args: [AXIOM_ROUTER_ADDRESS, params.price],
+            });
+            setApprovalTxHash(approvalHash);
+            const approvalReceipt = await publicClient.waitForTransactionReceipt({
+              hash: approvalHash,
+            });
+            if (approvalReceipt.status !== "success") {
+              throw new Error("Token approval reverted");
+            }
+          }
+        }
 
-  useEffect(() => {
-    if (hash) setTxHash(hash);
-  }, [hash]);
+        setPhase("purchasing");
+        const purchaseHash = await writeContractAsync({
+          ...routerConfig,
+          functionName: "purchaseLicense",
+          args: [params.licenseId, params.duration ?? 0],
+          value: isNativeToken(params.paymentToken) ? params.price : BigInt(0),
+        });
+        setTxHash(purchaseHash);
+        setPhase("confirming");
+        const purchaseReceipt = await publicClient.waitForTransactionReceipt({
+          hash: purchaseHash,
+        });
+        if (purchaseReceipt.status !== "success") {
+          throw new Error("License purchase reverted");
+        }
+        setPhase("success");
+        toast.success("License purchased", {
+          description: `${purchaseHash.slice(0, 10)}…${purchaseHash.slice(-8)}`,
+        });
+      } catch (purchaseError) {
+        const normalized = toError(purchaseError);
+        setError(normalized);
+        setPhase("error");
+        toast.error("License purchase failed", {
+          description: parseContractError(normalized),
+        });
+      }
+    },
+    [address, chainId, publicClient, writeContractAsync],
+  );
 
-  useEffect(() => {
-    if (writeError) {
-      toast.error("License Purchase Failed", {
-        description: parseContractError(writeError),
-      });
-    }
-  }, [writeError]);
-
-  useEffect(() => {
-    if (confirmError) {
-      toast.error("Confirmation Failed", {
-        description: confirmError.message.slice(0, 100),
-      });
-    }
-  }, [confirmError]);
-
-  useEffect(() => {
-    if (isConfirmed && txHash) {
-      toast.success("License Purchased!", {
-        description: `Transaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`,
-      });
-    }
-  }, [isConfirmed, txHash]);
-
-  const purchaseLicense = (licenseId: bigint, priceWei: bigint) => {
-    writeContract({
-      address: AXIOM_ROUTER_ADDRESS,
-      abi: AXIOM_ROUTER_ABI,
-      functionName: "purchaseLicense",
-      args: [licenseId, 0], // duration hardcoded to 0 (lifetime)
-      value: priceWei,
-    });
-  };
+  const reset = useCallback(() => {
+    resetWrite();
+    setPhase("idle");
+    setTxHash(undefined);
+    setApprovalTxHash(undefined);
+    setError(null);
+  }, [resetWrite]);
 
   return {
     purchaseLicense,
+    phase,
     txHash,
-    isPending,
-    isConfirming,
-    isConfirmed,
-    error: writeError || confirmError,
+    approvalTxHash,
+    error,
+    isPending: ["checking", "approving", "purchasing"].includes(phase),
+    isConfirming: phase === "confirming",
+    isSuccess: phase === "success",
     reset,
   };
 }
 
-// ============================================================================
-// READ HOOKS
-// ============================================================================
-
-/**
- * Hook to get all license IDs for a specific content record.
- *
- * @param recordId - bytes32 record identifier
- * @returns Array of license IDs (uint256[])
- */
 export function useLicensesByRecord(recordId: `0x${string}` | undefined) {
-  const { data, isLoading, error, refetch } = useReadContract({
-    address: AXIOM_ROUTER_ADDRESS,
-    abi: AXIOM_ROUTER_ABI,
+  const query = useReadContract({
+    ...routerConfig,
     functionName: "getLicensesByRecord",
     args: recordId ? [recordId] : undefined,
     query: {
-      enabled: !!recordId,
+      enabled: IS_AXIOM_ROUTER_CONFIGURED && !!recordId,
       staleTime: 30_000,
     },
   });
-
   return {
-    licenseIds: (data as bigint[]) || [],
-    isLoading,
-    error,
-    refetch,
+    licenseIds: (query.data as readonly bigint[] | undefined) ?? [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
   };
 }
 
-/**
- * Hook to get full license details by ID.
- *
- * Parses the License struct from the contract, safely converting
- * all BigInt fields to avoid serialization errors.
- *
- * @param licenseId - uint256 license identifier
- */
 export function useLicenseInfo(licenseId: bigint | undefined) {
-  const { data, isLoading, error, refetch } = useReadContract({
-    address: AXIOM_ROUTER_ADDRESS,
-    abi: AXIOM_ROUTER_ABI,
+  const query = useReadContract({
+    ...routerConfig,
     functionName: "getLicense",
     args: licenseId !== undefined ? [licenseId] : undefined,
     query: {
-      enabled: licenseId !== undefined,
+      enabled: IS_AXIOM_ROUTER_CONFIGURED && licenseId !== undefined,
       staleTime: 30_000,
     },
   });
-
-  // Parse the License struct safely
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = data as any;
-  const license: LicenseInfo | undefined = raw
-    ? {
-        recordId: raw.recordId as `0x${string}`,
-        licensor: raw.licensor as `0x${string}`,
-        licensee: raw.licensee as `0x${string}`,
-        paymentToken: raw.paymentToken as `0x${string}`,
-        licenseType: Number(raw.licenseType),
-        royaltyBps: Number(raw.royaltyBps),
-        exclusive: raw.exclusive as boolean,
-        sublicensable: raw.sublicensable as boolean,
-        transferable: raw.transferable as boolean,
-        active: raw.active as boolean,
-        validFrom: Number(raw.validFrom),
-        validUntil: Number(raw.validUntil),
-        price: raw.price as bigint,
-        priceFormatted: formatEther(raw.price as bigint),
-        customTermsURI: raw.customTermsURI as string,
-        territoryRestrictions: raw.territoryRestrictions as string,
-      }
-    : undefined;
-
   return {
-    license,
-    isLoading,
-    error,
-    refetch,
+    license: parseLicense(query.data),
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
   };
 }
 
-// ============================================================================
-// HELPERS
-// ============================================================================
+export function formatRawTokenAmount(
+  amount: bigint,
+  metadata: TokenMetadata,
+): string {
+  return `${formatUnits(amount, metadata.decimals)} ${metadata.symbol}`;
+}
 
 function parseContractError(error: Error): string {
   const message = error.message.toLowerCase();
-
   if (message.includes("user rejected") || message.includes("user denied")) {
-    return "Transaction was rejected by user";
+    return "Transaction was rejected in the wallet";
   }
   if (message.includes("insufficient funds")) {
-    return "Insufficient funds for transaction";
+    return "Insufficient funds for the transaction and gas";
   }
-  if (message.includes("not the owner") || message.includes("unauthorized")) {
-    return "You are not the owner of this content";
+  if (message.includes("not the owner") || message.includes("notlicensor")) {
+    return "Only the content issuer can create this license";
   }
-  if (message.includes("already exists")) {
-    return "A license already exists for this record";
-  }
-
-  return error.message.slice(0, 100);
+  return error.message.slice(0, 180);
 }

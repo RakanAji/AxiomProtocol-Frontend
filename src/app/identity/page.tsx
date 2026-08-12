@@ -31,10 +31,15 @@ import {
   useNetworkStatus,
 } from "@/hooks/useAxiomContract";
 import { toast } from "sonner";
+import {
+  IS_AXIOM_ROUTER_CONFIGURED,
+  ROUTER_CONFIGURATION_ERROR,
+} from "@/lib/contracts/axiom-router";
+import { resolveContentUri } from "@/lib/axiom-domain";
 
 export default function IdentityPage() {
   const { isConnected, address } = useAccount();
-  const { isWrongNetwork } = useNetworkStatus();
+  const { isWrongNetwork, isContractConfigured } = useNetworkStatus();
   const { identity, isLoadingIdentity, identityError, refetchIdentity } =
     useMyIdentity();
 
@@ -45,6 +50,7 @@ export default function IdentityPage() {
     isConfirming: isRegisterConfirming,
     isConfirmed: isRegisterConfirmed,
     error: registerError,
+    reset: resetRegister,
   } = useRegisterIdentity();
 
   // Update hook
@@ -63,13 +69,6 @@ export default function IdentityPage() {
     proofURI: "",
   });
 
-  // Debug log
-  useEffect(() => {
-    if (identity) {
-      console.log("Identity Data:", identity);
-    }
-  }, [identity]);
-
   // Handle register success
   useEffect(() => {
     if (isRegisterConfirmed) {
@@ -77,8 +76,9 @@ export default function IdentityPage() {
         description: "Your on-chain identity has been created.",
       });
       refetchIdentity();
+      resetRegister();
     }
-  }, [isRegisterConfirmed, refetchIdentity]);
+  }, [isRegisterConfirmed, refetchIdentity, resetRegister]);
 
   // Handle update success
   useEffect(() => {
@@ -132,9 +132,18 @@ export default function IdentityPage() {
       toast.error("Please enter a display name");
       return;
     }
+    if (formData.proofURI.trim() && !resolveContentUri(formData.proofURI.trim())) {
+      toast.error("Proof URI must use IPFS, Arweave, HTTP, or HTTPS");
+      return;
+    }
 
     if (isWrongNetwork) {
       toast.error("Please switch to the correct network");
+      return;
+    }
+
+    if (!isContractConfigured) {
+      toast.error("Contract is not configured");
       return;
     }
 
@@ -148,9 +157,19 @@ export default function IdentityPage() {
       toast.error("Please enter a display name");
       return;
     }
+    if (formData.proofURI.trim() && !resolveContentUri(formData.proofURI.trim())) {
+      toast.error("Proof URI must use IPFS, Arweave, HTTP, or HTTPS");
+      return;
+    }
 
     if (isWrongNetwork) {
       toast.error("Please switch to the correct network");
+      return;
+    }
+
+
+    if (!isContractConfigured) {
+      toast.error("Contract is not configured");
       return;
     }
 
@@ -174,6 +193,13 @@ export default function IdentityPage() {
             Register your on-chain identity to build trust and credibility
           </p>
         </div>
+
+        {/* Not Connected State */}
+        {!IS_AXIOM_ROUTER_CONFIGURED && (
+          <Card className="rounded-2xl border-red-500/30 bg-red-950/30 p-4 text-sm text-red-200">
+            {ROUTER_CONFIGURATION_ERROR}
+          </Card>
+        )}
 
         {/* Not Connected State */}
         {!isConnected && (
@@ -250,7 +276,7 @@ export default function IdentityPage() {
                     ) : (
                       <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30">
                         <Clock className="w-4 h-4 text-amber-400" />
-                        <span className="text-xs text-amber-300">Pending</span>
+                        <span className="text-xs text-amber-300">Self-declared</span>
                       </div>
                     )}
                   </div>
@@ -272,13 +298,13 @@ export default function IdentityPage() {
 
               {/* Identity Details */}
               <div className="space-y-3 pt-4 border-t border-white/10">
-                {identity.proofURI && (
+                {identity.proofURI && resolveContentUri(identity.proofURI) && (
                   <div>
                     <span className="text-xs text-gray-500 block mb-1">
                       PROOF URI
                     </span>
                     <a
-                      href={identity.proofURI}
+                      href={resolveContentUri(identity.proofURI)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-cyan-400 hover:underline flex items-center gap-1 break-all"
@@ -305,7 +331,7 @@ export default function IdentityPage() {
                 <p className="text-xs text-gray-500 text-center">
                   {identity.isVerified
                     ? "Your identity is verified and trusted"
-                    : "Your identity is pending verification by protocol operators"}
+                    : "This identity is self-declared and not operator-verified"}
                 </p>
               </div>
             </div>
@@ -383,6 +409,7 @@ export default function IdentityPage() {
                       isPending ||
                       isConfirming ||
                       isWrongNetwork ||
+                      !isContractConfigured ||
                       !formData.name.trim()
                     }
                   >
@@ -463,6 +490,7 @@ export default function IdentityPage() {
                     isPending ||
                     isConfirming ||
                     isWrongNetwork ||
+                    !isContractConfigured ||
                     !formData.name.trim()
                   }
                 >
@@ -496,7 +524,7 @@ export default function IdentityPage() {
           </h3>
           <ul className="text-sm text-gray-400 space-y-1">
             <li>• Build trust with content you register</li>
-            <li>• Allow others to verify your authenticity</li>
+            <li>• Link a public name to your wallet</li>
             <li>• Get discovered through name resolution</li>
             <li>• Verified identities receive enhanced credibility badges</li>
           </ul>
